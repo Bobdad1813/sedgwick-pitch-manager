@@ -1,0 +1,1952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a3a0f">
+<title>Sedgwick CC — Pitch Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green-dark:   #1a3a0f;
+  --green-mid:    #2d5c1a;
+  --green-field:  #3d7a24;
+  --green-light:  #c8e6b0;
+  --green-pale:   #eef6e8;
+  --cream:        #f7f3eb;
+  --gold:         #c9a84c;
+  --gold-light:   #f0d990;
+  --blue-team:    #1e3d6b;
+  --blue-light:   #d0e4f7;
+  --orange-team:  #8b3a0f;
+  --orange-light: #fde8d8;
+  --red-reno:     #8b1a1a;
+  --red-light:    #fdd8d8;
+  --amber:        #d97706;
+  --amber-light:  #fef3c7;
+  --text-dark:    #1a1a0f;
+  --text-mid:     #3a3a2a;
+  --text-light:   #6b6b50;
+  --border:       #c8c8a8;
+  --white:        #ffffff;
+  --shadow:       0 2px 12px rgba(26,58,15,0.15);
+  --shadow-lg:    0 8px 32px rgba(26,58,15,0.2);
+  --radius:       12px;
+  --radius-sm:    8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--cream);
+  color: var(--text-dark);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── LOADING ── */
+#loading {
+  position: fixed; inset: 0;
+  background: var(--green-dark);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 9999; gap: 20px;
+  transition: opacity 0.4s;
+}
+#loading .logo-text {
+  font-family: 'Libre Baskerville', serif;
+  color: var(--gold);
+  font-size: 1.4rem;
+  letter-spacing: 0.05em;
+  text-align: center;
+  line-height: 1.4;
+}
+#loading .sub { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin-top: 4px; }
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid rgba(201,168,76,0.3);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── HEADER ── */
+#app-header {
+  background: var(--green-dark);
+  color: var(--white);
+  padding: 0;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.header-top {
+  display: flex; align-items: center;
+  padding: 12px 16px; gap: 12px;
+}
+.header-back {
+  background: none; border: none;
+  color: var(--gold); font-size: 1.3rem;
+  cursor: pointer; padding: 4px 8px 4px 0;
+  display: none;
+}
+.header-title {
+  flex: 1;
+  font-family: 'Libre Baskerville', serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+.header-title small {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.55);
+  font-style: italic;
+  letter-spacing: 0.03em;
+}
+.header-actions { display: flex; gap: 8px; }
+.header-btn {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: var(--white); border-radius: 8px;
+  padding: 6px 12px; font-size: 0.75rem;
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: background 0.2s;
+}
+.header-btn:active { background: rgba(255,255,255,0.2); }
+.header-btn.gold { background: var(--gold); color: var(--green-dark); border-color: var(--gold); font-weight: 600; }
+
+/* ── NAV TABS ── */
+.nav-tabs {
+  display: flex;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  overflow-x: auto; scrollbar-width: none;
+}
+.nav-tabs::-webkit-scrollbar { display: none; }
+.nav-tab {
+  flex: 1; min-width: 60px;
+  background: none; border: none;
+  color: rgba(255,255,255,0.5);
+  padding: 10px 8px 8px;
+  font-size: 0.65rem; font-family: 'DM Sans', sans-serif;
+  cursor: pointer; text-align: center;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.nav-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.nav-tab .tab-icon { font-size: 1.1rem; display: block; margin-bottom: 2px; }
+
+/* ── PAGES ── */
+.page { display: none; padding: 16px; padding-bottom: 80px; animation: fadeIn 0.2s ease; }
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── CARDS ── */
+.card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.card-header {
+  background: var(--green-dark);
+  color: var(--white);
+  padding: 12px 16px;
+  font-family: 'Libre Baskerville', serif;
+  font-size: 0.9rem;
+  display: flex; align-items: center;
+  justify-content: space-between;
+}
+.card-header .badge {
+  background: var(--gold);
+  color: var(--green-dark);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.65rem; font-weight: 600;
+  padding: 2px 8px; border-radius: 20px;
+}
+.card-body { padding: 14px 16px; }
+
+/* ── SQUARE MAP ── */
+.square-map-wrap {
+  background: var(--green-field);
+  border-radius: var(--radius);
+  padding: 16px 10px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+.square-map-wrap::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    90deg, transparent, transparent 10px,
+    rgba(255,255,255,0.03) 10px, rgba(255,255,255,0.03) 11px
+  );
+}
+.square-map-title {
+  font-family: 'Libre Baskerville', serif;
+  color: var(--gold);
+  font-size: 0.85rem;
+  text-align: center;
+  margin-bottom: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  position: relative;
+}
+.square-grid {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  position: relative;
+}
+.strip-btn {
+  flex: 1;
+  min-width: 0;
+  aspect-ratio: 1/4;
+  border-radius: 4px;
+  border: 1.5px solid rgba(255,255,255,0.3);
+  cursor: pointer;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: space-between;
+  padding: 4px 2px;
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.strip-btn:active { transform: scale(0.95); }
+.strip-btn .strip-num {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  line-height: 1;
+}
+.strip-btn .strip-status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.4);
+}
+/* Strip colours by status */
+.strip-available   { background: rgba(61,122,36,0.8); }
+.strip-upcoming    { background: rgba(201,168,76,0.75); }
+.strip-prep        { background: rgba(30,61,107,0.8); }
+.strip-played      { background: rgba(139,58,15,0.7); }
+.strip-renovating  { background: rgba(139,26,26,0.75); }
+.strip-ready       { background: rgba(61,122,36,0.6); border: 1.5px solid var(--gold-light); }
+.strip-junior      { background: rgba(100,100,60,0.6); }
+.strip-practice    { background: rgba(60,60,40,0.5); }
+
+.map-legend {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 12px; justify-content: center;
+  position: relative;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.6rem; color: rgba(255,255,255,0.8);
+}
+.legend-dot {
+  width: 8px; height: 8px; border-radius: 2px;
+}
+
+/* ── FIXTURE LIST ── */
+.fixture-item {
+  border-left: 4px solid var(--border);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--white);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.fixture-item:active { transform: translateX(2px); }
+.fixture-item.team-1st  { border-color: var(--green-field); }
+.fixture-item.team-2nd  { border-color: var(--blue-team); }
+.fixture-item.team-3rd  { border-color: var(--orange-team); }
+.fixture-item.status-renovate { border-color: var(--red-reno); background: #fff8f8; }
+.fixture-item.status-postreno { border-color: var(--green-field); background: #f8fff8; }
+
+.fixture-meta {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; margin-bottom: 4px;
+}
+.fixture-date {
+  font-size: 0.7rem; font-weight: 600;
+  color: var(--text-light);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.fixture-strip-badge {
+  background: var(--green-dark);
+  color: var(--gold);
+  font-size: 0.65rem; font-weight: 700;
+  padding: 2px 7px; border-radius: 20px;
+  font-family: 'Libre Baskerville', serif;
+}
+.fixture-opponents {
+  font-size: 0.9rem; font-weight: 500;
+  color: var(--text-dark); margin-bottom: 3px;
+}
+.fixture-footer {
+  display: flex; justify-content: space-between;
+  align-items: center;
+}
+.team-pill {
+  font-size: 0.65rem; font-weight: 600;
+  padding: 2px 8px; border-radius: 20px;
+}
+.team-pill.t1 { background: var(--green-light); color: var(--green-dark); }
+.team-pill.t2 { background: var(--blue-light); color: var(--blue-team); }
+.team-pill.t3 { background: var(--orange-light); color: var(--orange-team); }
+
+.status-pill {
+  font-size: 0.6rem; font-weight: 600;
+  padding: 2px 7px; border-radius: 20px;
+}
+.sp-upcoming   { background: var(--amber-light); color: var(--amber); }
+.sp-prep       { background: var(--blue-light); color: var(--blue-team); }
+.sp-played     { background: var(--green-light); color: var(--green-dark); }
+.sp-renovate   { background: var(--red-light); color: var(--red-reno); }
+.sp-cancelled  { background: #f0f0f0; color: #888; text-decoration: line-through; }
+
+/* ── PREP PLAN ── */
+.prep-step {
+  display: flex; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.prep-step:last-child { border-bottom: none; }
+.prep-day-badge {
+  min-width: 52px;
+  background: var(--green-dark);
+  color: var(--gold);
+  font-family: 'Libre Baskerville', serif;
+  font-size: 0.75rem; font-weight: 700;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  padding: 6px 4px;
+  align-self: flex-start;
+  line-height: 1.2;
+}
+.prep-day-badge.day-0 { background: var(--gold); color: var(--green-dark); }
+.prep-day-badge.reno  { background: var(--blue-team); }
+.prep-content { flex: 1; }
+.prep-activities {
+  font-size: 0.85rem; font-weight: 500;
+  color: var(--text-dark); margin-bottom: 4px;
+}
+.prep-hoc {
+  display: inline-block;
+  background: var(--green-pale);
+  color: var(--green-dark);
+  font-size: 0.65rem; font-weight: 600;
+  padding: 1px 7px; border-radius: 20px;
+  margin-bottom: 4px;
+}
+.prep-notes {
+  font-size: 0.75rem; color: var(--text-light);
+  font-style: italic; line-height: 1.4;
+}
+
+/* ── FORMS ── */
+.form-section { margin-bottom: 20px; }
+.form-label {
+  display: block;
+  font-size: 0.75rem; font-weight: 600;
+  color: var(--text-mid);
+  margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: var(--text-dark);
+  background: var(--white);
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  outline: none;
+  border-color: var(--green-field);
+}
+.form-textarea { min-height: 80px; resize: vertical; }
+.checkbox-group {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.checkbox-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.checkbox-item.checked {
+  border-color: var(--green-field);
+  background: var(--green-pale);
+}
+.checkbox-item input { display: none; }
+.checkbox-label { font-size: 0.85rem; font-weight: 500; }
+.rating-group {
+  display: flex; gap: 8px;
+}
+.rating-btn {
+  flex: 1;
+  padding: 10px 4px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; text-align: center;
+  transition: all 0.15s;
+}
+.rating-btn.selected { background: var(--green-dark); color: var(--gold); border-color: var(--green-dark); }
+
+/* ── BUTTONS ── */
+.btn {
+  display: block; width: 100%;
+  padding: 14px;
+  border: none; border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem; font-weight: 600;
+  cursor: pointer; text-align: center;
+  transition: all 0.2s;
+}
+.btn-primary { background: var(--green-dark); color: var(--gold); }
+.btn-primary:active { background: var(--green-mid); }
+.btn-secondary { background: var(--green-pale); color: var(--green-dark); }
+.btn-danger { background: var(--red-light); color: var(--red-reno); }
+.btn-gold { background: var(--gold); color: var(--green-dark); }
+.btn-sm {
+  display: inline-block; width: auto;
+  padding: 8px 16px; font-size: 0.8rem;
+}
+
+/* ── MODAL ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000; align-items: flex-end;
+  backdrop-filter: blur(2px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--cream);
+  border-radius: var(--radius) var(--radius) 0 0;
+  width: 100%; max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.modal-header {
+  background: var(--green-dark);
+  color: var(--white);
+  padding: 16px;
+  display: flex; align-items: center;
+  justify-content: space-between;
+  position: sticky; top: 0;
+}
+.modal-title {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 1rem;
+}
+.modal-close {
+  background: none; border: none;
+  color: rgba(255,255,255,0.7);
+  font-size: 1.4rem; cursor: pointer;
+  line-height: 1;
+}
+.modal-body { padding: 16px; }
+
+/* ── PIN PAD ── */
+.pin-display {
+  display: flex; justify-content: center; gap: 12px;
+  margin: 20px 0 24px;
+}
+.pin-dot {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--green-dark);
+  background: transparent;
+  transition: background 0.15s;
+}
+.pin-dot.filled { background: var(--green-dark); }
+.pin-pad {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 10px; max-width: 260px; margin: 0 auto;
+}
+.pin-key {
+  padding: 16px;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 1.2rem; font-weight: 600;
+  cursor: pointer; text-align: center;
+  transition: all 0.15s;
+  font-family: 'Libre Baskerville', serif;
+}
+.pin-key:active { background: var(--green-dark); color: var(--gold); }
+.pin-key.del { font-size: 1rem; color: var(--text-light); }
+
+/* ── STRIP DETAIL ── */
+.strip-detail-header {
+  background: linear-gradient(135deg, var(--green-dark), var(--green-mid));
+  color: var(--white);
+  padding: 20px 16px;
+  text-align: center;
+  margin: -16px -16px 16px;
+}
+.strip-number-big {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 3.5rem; color: var(--gold);
+  line-height: 1; margin-bottom: 4px;
+}
+.strip-zone-label {
+  font-size: 0.8rem; color: rgba(255,255,255,0.7);
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+
+/* ── STATUS BANNER ── */
+.status-banner {
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.8rem; font-weight: 500;
+  margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sb-available { background: var(--green-pale); color: var(--green-dark); border: 1px solid var(--green-light); }
+.sb-upcoming  { background: var(--amber-light); color: var(--amber); border: 1px solid #fcd34d; }
+.sb-prep      { background: var(--blue-light); color: var(--blue-team); border: 1px solid #93c5fd; }
+.sb-renovating{ background: var(--red-light); color: var(--red-reno); border: 1px solid #fca5a5; }
+.sb-ready     { background: var(--green-pale); color: var(--green-dark); border: 1px solid var(--gold); }
+
+/* ── LOG HISTORY ── */
+.log-entry {
+  padding: 10px 12px;
+  border-left: 3px solid var(--border);
+  margin-bottom: 8px;
+  background: var(--white);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.log-entry-header {
+  display: flex; justify-content: space-between;
+  font-size: 0.7rem; color: var(--text-light);
+  margin-bottom: 4px;
+}
+.log-entry-body { font-size: 0.85rem; }
+.log-by { font-size: 0.65rem; color: var(--text-light); font-style: italic; margin-top: 3px; }
+
+/* ── SECTION TITLE ── */
+.section-title {
+  font-family: 'Libre Baskerville', serif;
+  font-size: 1rem; color: var(--green-dark);
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 2px solid var(--green-light);
+  display: flex; justify-content: space-between;
+  align-items: center;
+}
+.section-title .count {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem; font-weight: 600;
+  background: var(--green-light);
+  color: var(--green-dark);
+  padding: 2px 8px; border-radius: 20px;
+}
+
+/* ── DIVIDER ── */
+.divider {
+  height: 1px; background: var(--border);
+  margin: 16px 0;
+}
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align: center; padding: 32px 16px;
+  color: var(--text-light);
+}
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; }
+.empty-state p { font-size: 0.85rem; }
+
+/* ── NOTIFICATION ── */
+#notification {
+  position: fixed; bottom: 80px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--green-dark); color: var(--gold);
+  padding: 10px 20px; border-radius: 20px;
+  font-size: 0.85rem; font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  opacity: 0; transition: all 0.3s;
+  pointer-events: none; z-index: 9000;
+  white-space: nowrap;
+}
+#notification.show {
+  opacity: 1; transform: translateX(-50%) translateY(0);
+}
+
+/* ── BOTTOM NAV ── */
+#bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--green-dark);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 100;
+}
+.bottom-nav-btn {
+  flex: 1; background: none; border: none;
+  color: rgba(255,255,255,0.45);
+  padding: 10px 4px 8px;
+  font-size: 0.6rem;
+  cursor: pointer; text-align: center;
+  transition: color 0.2s;
+  font-family: 'DM Sans', sans-serif;
+}
+.bottom-nav-btn .nav-icon { font-size: 1.15rem; display: block; margin-bottom: 2px; }
+.bottom-nav-btn.active { color: var(--gold); }
+
+/* ── PRINT STYLES ── */
+@media print {
+  body { background: white; }
+  #app-header, #bottom-nav, #notification,
+  .modal-overlay, #loading, .header-btn,
+  .no-print { display: none !important; }
+  .page { display: block !important; padding: 0; }
+  #page-print { display: block !important; }
+  .print-only { display: block !important; }
+  @page { size: A3 landscape; margin: 15mm; }
+}
+.print-only { display: none; }
+
+/* ── UTILS ── */
+.text-center { text-align: center; }
+.text-sm { font-size: 0.8rem; }
+.text-muted { color: var(--text-light); }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mb-8 { margin-bottom: 8px; }
+.gap-8 { display: flex; gap: 8px; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading">
+  <div class="logo-text">Sedgwick CC<br>Pitch Manager</div>
+  <div class="spinner"></div>
+  <div class="sub">Loading season data…</div>
+</div>
+
+<!-- Header -->
+<div id="app-header">
+  <div class="header-top">
+    <button class="header-back" id="header-back" onclick="goBack()">←</button>
+    <div class="header-title">
+      <span id="header-title-text">Sedgwick CC</span>
+      <small id="header-subtitle">2026 Season</small>
+    </div>
+    <div class="header-actions">
+      <button class="header-btn" onclick="refreshData()" id="refresh-btn">↻ Sync</button>
+      <button class="header-btn gold" onclick="showPinModal('admin')" id="admin-btn">⚙</button>
+    </div>
+  </div>
+  <div class="nav-tabs" id="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('square')" data-tab="square">
+      <span class="tab-icon">🏏</span>Square
+    </button>
+    <button class="nav-tab" onclick="switchTab('fixtures')" data-tab="fixtures">
+      <span class="tab-icon">📅</span>Fixtures
+    </button>
+    <button class="nav-tab" onclick="switchTab('prepplan')" data-tab="prepplan">
+      <span class="tab-icon">📋</span>Prep Plan
+    </button>
+    <button class="nav-tab" onclick="switchTab('log')" data-tab="log">
+      <span class="tab-icon">✏️</span>Log
+    </button>
+    <button class="nav-tab" onclick="switchTab('reports')" data-tab="reports">
+      <span class="tab-icon">📊</span>Reports
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════ PAGE: SQUARE MAP ═══════════════════ -->
+<div class="page active" id="page-square">
+
+  <div class="square-map-wrap">
+    <div class="square-map-title">The Square — Sedgwick CC</div>
+    <div class="square-grid" id="square-grid">
+      <!-- Strips rendered by JS -->
+    </div>
+    <div class="map-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#3d7a24"></div>Available</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#c9a84c"></div>Upcoming</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#1e3d6b"></div>In Prep</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8b3a0f"></div>Played</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8b1a1a"></div>Renovating</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#645a30"></div>Junior/Practice</div>
+    </div>
+  </div>
+
+  <div class="section-title">
+    Next Fixtures
+    <span class="count" id="upcoming-count">—</span>
+  </div>
+  <div id="upcoming-fixtures-list">
+    <div class="empty-state"><div class="icon">⏳</div><p>Loading fixtures…</p></div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════ PAGE: FIXTURES ═══════════════════ -->
+<div class="page" id="page-fixtures">
+
+  <div class="flex-between mb-8">
+    <div class="section-title" style="margin-bottom:0;border:none">All Fixtures</div>
+    <div id="admin-fixture-btn" style="display:none">
+      <button class="btn btn-primary btn-sm" onclick="showAddFixtureModal()">+ Add</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px">
+    <button class="btn btn-secondary btn-sm filter-btn active" data-filter="all" onclick="filterFixtures('all',this)">All</button>
+    <button class="btn btn-secondary btn-sm filter-btn" data-filter="1st XI" onclick="filterFixtures('1st XI',this)">1st XI</button>
+    <button class="btn btn-secondary btn-sm filter-btn" data-filter="2nd XI" onclick="filterFixtures('2nd XI',this)">2nd XI</button>
+    <button class="btn btn-secondary btn-sm filter-btn" data-filter="3rd XI" onclick="filterFixtures('3rd XI',this)">3rd XI</button>
+  </div>
+
+  <div id="fixtures-list">
+    <div class="empty-state"><div class="icon">📅</div><p>Loading…</p></div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════ PAGE: PREP PLAN ═══════════════════ -->
+<div class="page" id="page-prepplan">
+
+  <div class="card">
+    <div class="card-header">
+      Standard Preparation Plan
+      <span class="badge">HOC: 16→8mm</span>
+    </div>
+    <div class="card-body">
+      <div id="prep-plan-steps"><!-- rendered by JS --></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="background:var(--blue-team)">
+      Post-Match Renovation
+      <span class="badge" style="background:rgba(255,255,255,0.2);color:white">6 week rest</span>
+    </div>
+    <div class="card-body">
+      <div id="reno-steps"><!-- rendered by JS --></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="background:var(--gold);color:var(--green-dark)">
+      Key Principles
+    </div>
+    <div class="card-body">
+      <p class="text-sm" style="line-height:1.7;color:var(--text-mid)">
+        All steps are <strong>weather dependent</strong> — log actual dates in the Prep Log.<br><br>
+        Roll first to stand the grass, then brush up before cutting.<br><br>
+        Verticutting is light (1–3 passes) to thin the sward, not to remove thatch.<br><br>
+        No adjacent strips in use on the same day. Max 2 uses per strip before renovation.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════ PAGE: LOG ═══════════════════ -->
+<div class="page" id="page-log">
+
+  <div style="display:flex;gap:8px;margin-bottom:16px">
+    <button class="btn btn-primary" style="flex:1" onclick="showLogModal('prep')">📋 Log Prep Work</button>
+    <button class="btn btn-secondary" style="flex:1" onclick="showLogModal('match')">🏏 Match Report</button>
+  </div>
+
+  <div class="section-title">
+    Recent Logs
+    <span class="count" id="log-count">0</span>
+  </div>
+
+  <div id="recent-logs-list">
+    <div class="empty-state">
+      <div class="icon">✏️</div>
+      <p>No entries yet this season.<br>Tap above to log prep work or a match report.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════ PAGE: REPORTS ═══════════════════ -->
+<div class="page" id="page-reports">
+
+  <div class="card">
+    <div class="card-header">Season Overview</div>
+    <div class="card-body" id="season-stats">
+      <div class="empty-state"><div class="icon">📊</div><p>Loading stats…</p></div>
+    </div>
+  </div>
+
+  <div class="section-title">Match Reports</div>
+  <div id="match-reports-list">
+    <div class="empty-state"><div class="icon">🏏</div><p>No match reports yet.</p></div>
+  </div>
+
+  <div class="mt-16">
+    <button class="btn btn-secondary" onclick="showPrintView()">🖨️ Print A3 Schedule</button>
+  </div>
+
+</div>
+
+<!-- ═══════════════════ PAGE: STRIP DETAIL ═══════════════════ -->
+<div class="page" id="page-strip">
+  <div id="strip-detail-content"><!-- rendered dynamically --></div>
+</div>
+
+<!-- ═══════════════════ PAGE: PRINT ═══════════════════ -->
+<div class="page" id="page-print">
+  <div id="print-content"><!-- rendered dynamically --></div>
+</div>
+
+<!-- Bottom Nav -->
+<div id="bottom-nav">
+  <button class="bottom-nav-btn active" onclick="switchTab('square')" data-tab="square">
+    <span class="nav-icon">🏏</span>Square
+  </button>
+  <button class="bottom-nav-btn" onclick="switchTab('fixtures')" data-tab="fixtures">
+    <span class="nav-icon">📅</span>Fixtures
+  </button>
+  <button class="bottom-nav-btn" onclick="switchTab('prepplan')" data-tab="prepplan">
+    <span class="nav-icon">📋</span>Plan
+  </button>
+  <button class="bottom-nav-btn" onclick="switchTab('log')" data-tab="log">
+    <span class="nav-icon">✏️</span>Log
+  </button>
+  <button class="bottom-nav-btn" onclick="switchTab('reports')" data-tab="reports">
+    <span class="nav-icon">📊</span>Reports
+  </button>
+</div>
+
+<!-- Notification -->
+<div id="notification"></div>
+
+<!-- ═══════════════════ MODALS ═══════════════════ -->
+
+<!-- PIN Modal -->
+<div class="modal-overlay" id="pin-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">🔒 Groundskeeper Access</span>
+      <button class="modal-close" onclick="closeModal('pin-modal')">×</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <p class="text-sm text-muted mb-8">Enter your PIN to access editor functions</p>
+      <div class="pin-display" id="pin-display">
+        <div class="pin-dot" id="d0"></div>
+        <div class="pin-dot" id="d1"></div>
+        <div class="pin-dot" id="d2"></div>
+        <div class="pin-dot" id="d3"></div>
+      </div>
+      <div class="pin-pad">
+        <button class="pin-key" onclick="pinPress('1')">1</button>
+        <button class="pin-key" onclick="pinPress('2')">2</button>
+        <button class="pin-key" onclick="pinPress('3')">3</button>
+        <button class="pin-key" onclick="pinPress('4')">4</button>
+        <button class="pin-key" onclick="pinPress('5')">5</button>
+        <button class="pin-key" onclick="pinPress('6')">6</button>
+        <button class="pin-key" onclick="pinPress('7')">7</button>
+        <button class="pin-key" onclick="pinPress('8')">8</button>
+        <button class="pin-key" onclick="pinPress('9')">9</button>
+        <button class="pin-key del" onclick="pinPress('clear')">✕</button>
+        <button class="pin-key" onclick="pinPress('0')">0</button>
+        <button class="pin-key del" onclick="pinPress('del')">⌫</button>
+      </div>
+      <p class="text-sm text-muted mt-16" id="pin-error" style="color:var(--red-reno);display:none">Incorrect PIN. Try again.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Prep Log Modal -->
+<div class="modal-overlay" id="prep-log-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">📋 Log Prep Work</span>
+      <button class="modal-close" onclick="closeModal('prep-log-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section">
+        <label class="form-label">Your Name / Initials *</label>
+        <input type="text" class="form-input" id="log-name" placeholder="e.g. BH">
+      </div>
+      <div class="form-section">
+        <label class="form-label">Strip *</label>
+        <select class="form-select" id="log-strip">
+          <option value="">Select strip…</option>
+        </select>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Match (links this log to a fixture)</label>
+        <select class="form-select" id="log-fixture">
+          <option value="">Select fixture…</option>
+        </select>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Date Work Done *</label>
+        <input type="date" class="form-input" id="log-date">
+      </div>
+      <div class="form-section">
+        <label class="form-label">Planned Prep Day</label>
+        <select class="form-select" id="log-planned-day">
+          <option value="">Select…</option>
+          <option>Day -10</option><option>Day -8</option><option>Day -6</option>
+          <option>Day -4</option><option>Day -1</option><option>Day 0 (Match morning)</option>
+          <option>Post-match renovation</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Activities Carried Out</label>
+        <div class="checkbox-group">
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="activity" value="Roll"> <span class="checkbox-label">🔄 Roll</span>
+          </label>
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="activity" value="Brush"> <span class="checkbox-label">🪮 Brush</span>
+          </label>
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="activity" value="Cut"> <span class="checkbox-label">✂️ Cut</span>
+          </label>
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="activity" value="Verticut"> <span class="checkbox-label">⚙️ Verticut</span>
+          </label>
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="activity" value="Overseed"> <span class="checkbox-label">🌱 Overseed</span>
+          </label>
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="activity" value="Loam"> <span class="checkbox-label">🟫 Loam</span>
+          </label>
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="activity" value="Water"> <span class="checkbox-label">💧 Water</span>
+          </label>
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="activity" value="Spike"> <span class="checkbox-label">📍 Spike</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-section" id="hoc-section" style="display:none">
+        <label class="form-label">HOC After Cut (mm)</label>
+        <input type="number" class="form-input" id="log-hoc" min="4" max="20" placeholder="e.g. 10">
+      </div>
+      <div class="form-section" id="verticut-section" style="display:none">
+        <label class="form-label">Verticut Passes</label>
+        <div class="rating-group">
+          <button class="rating-btn" onclick="selectRating(this,'vc-passes')">1</button>
+          <button class="rating-btn" onclick="selectRating(this,'vc-passes')">2</button>
+          <button class="rating-btn" onclick="selectRating(this,'vc-passes')">3</button>
+        </div>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Conditions</label>
+        <input type="text" class="form-input" id="log-conditions" placeholder="e.g. Dry and firm, soft after rain…">
+      </div>
+      <div class="form-section">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="log-notes" placeholder="Anything else worth recording…"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="submitPrepLog()">Save Prep Log</button>
+    </div>
+  </div>
+</div>
+
+<!-- Match Report Modal -->
+<div class="modal-overlay" id="match-log-modal">
+  <div class="modal">
+    <div class="modal-header" style="background:var(--blue-team)">
+      <span class="modal-title">🏏 Match Report</span>
+      <button class="modal-close" onclick="closeModal('match-log-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section">
+        <label class="form-label">Your Name / Initials *</label>
+        <input type="text" class="form-input" id="mr-name" placeholder="e.g. BH">
+      </div>
+      <div class="form-section">
+        <label class="form-label">Fixture *</label>
+        <select class="form-select" id="mr-fixture">
+          <option value="">Select fixture…</option>
+        </select>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Result</label>
+        <input type="text" class="form-input" id="mr-result" placeholder="e.g. Won by 45 runs">
+      </div>
+      <div class="form-section">
+        <label class="form-label">Pace (1=slow, 5=lively)</label>
+        <div class="rating-group">
+          <button class="rating-btn" onclick="selectRating(this,'mr-pace')">1</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-pace')">2</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-pace')">3</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-pace')">4</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-pace')">5</button>
+        </div>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Bounce (1=low/dead, 5=true/lively)</label>
+        <div class="rating-group">
+          <button class="rating-btn" onclick="selectRating(this,'mr-bounce')">1</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-bounce')">2</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-bounce')">3</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-bounce')">4</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-bounce')">5</button>
+        </div>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Spin (1=none, 5=significant)</label>
+        <div class="rating-group">
+          <button class="rating-btn" onclick="selectRating(this,'mr-spin')">1</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-spin')">2</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-spin')">3</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-spin')">4</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-spin')">5</button>
+        </div>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Wear Observed</label>
+        <div class="checkbox-group">
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="wear" value="Footmarks"> <span class="checkbox-label">👣 Footmarks</span>
+          </label>
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="wear" value="Bare patches"> <span class="checkbox-label">🟫 Bare patches</span>
+          </label>
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="wear" value="Uneven bounce"> <span class="checkbox-label">⚡ Uneven bounce</span>
+          </label>
+          <label class="checkbox-item" onclick="toggleCheck(this)">
+            <input type="checkbox" name="wear" value="Cracking"> <span class="checkbox-label">💥 Cracking</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Overall Pitch Rating (1–5)</label>
+        <div class="rating-group">
+          <button class="rating-btn" onclick="selectRating(this,'mr-overall')">1</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-overall')">2</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-overall')">3</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-overall')">4</button>
+          <button class="rating-btn" onclick="selectRating(this,'mr-overall')">5</button>
+        </div>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="mr-notes" placeholder="How did it play overall? Any issues?"></textarea>
+      </div>
+      <button class="btn btn-gold" onclick="submitMatchReport()">Save Match Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Fixture Modal (PIN protected) -->
+<div class="modal-overlay" id="edit-fixture-modal">
+  <div class="modal">
+    <div class="modal-header" style="background:var(--gold);color:var(--green-dark)">
+      <span class="modal-title">⚙️ Edit Fixture</span>
+      <button class="modal-close" onclick="closeModal('edit-fixture-modal')" style="color:var(--green-dark)">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ef-index">
+      <div class="form-section">
+        <label class="form-label">Date</label>
+        <input type="text" class="form-input" id="ef-date" placeholder="e.g. 18 Apr">
+      </div>
+      <div class="form-section">
+        <label class="form-label">Day</label>
+        <select class="form-select" id="ef-day">
+          <option>Sat</option><option>Sun</option><option>Mon</option>
+          <option>Tue</option><option>Wed</option><option>Thu</option><option>Fri</option>
+        </select>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Team</label>
+        <select class="form-select" id="ef-team">
+          <option>1st XI</option><option>2nd XI</option><option>3rd XI</option>
+        </select>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Opponents</label>
+        <input type="text" class="form-input" id="ef-opponents">
+      </div>
+      <div class="form-section">
+        <label class="form-label">Strip</label>
+        <select class="form-select" id="ef-strip"></select>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="ef-status">
+          <option value="active">Upcoming</option>
+          <option value="prep">Prep In Progress</option>
+          <option value="played">Played</option>
+          <option value="renovate">Renovate After</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="rescheduled">Rescheduled</option>
+        </select>
+      </div>
+      <div class="form-section">
+        <label class="form-label">Change Notes</label>
+        <textarea class="form-textarea" id="ef-notes" placeholder="Reason for any changes…" style="min-height:60px"></textarea>
+      </div>
+      <div class="gap-8">
+        <button class="btn btn-primary" style="flex:1" onclick="saveFixtureEdit()">Save Changes</button>
+        <button class="btn btn-danger btn-sm" onclick="cancelFixture()">Cancel Fixture</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// CONFIG — update these when connected to Google Sheets
+// ════════════════════════════════════════════════════════════════════════════
+const CONFIG = {
+  SHEET_ID: 'YOUR_SHEET_ID_HERE',
+  API_KEY:  'YOUR_API_KEY_HERE',
+  // Tabs
+  FIXTURES_TAB:  'Fixtures',
+  PREPLOG_TAB:   'PrepLog',
+  MATCHLOG_TAB:  'MatchLog',
+  SETTINGS_TAB:  'Settings',
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════════
+let state = {
+  fixtures: [],
+  prepLogs: [],
+  matchLogs: [],
+  strips: {},
+  isAdmin: false,
+  pinBuffer: '',
+  correctPin: '1234', // fallback — overridden from sheet
+  currentFixtureFilter: 'all',
+  navHistory: ['square'],
+  currentStrip: null,
+  pendingPinAction: null,
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// FIXTURE DATA (pre-loaded — overridden when sheet connected)
+// ════════════════════════════════════════════════════════════════════════════
+const SEED_FIXTURES = [
+  {date:'18 Apr',day:'Sat',team:'2nd XI',opponents:'Ambleside',         strip:'12',use:'Use 1',           status:'active'},
+  {date:'25 Apr',day:'Sat',team:'1st XI',opponents:'Ulverston',         strip:'8', use:'Use 1',           status:'active'},
+  {date:'26 Apr',day:'Sun',team:'1st XI',opponents:'Burneside (Nat. Village)',strip:'8',use:'Use 2 → Renovate',status:'renovate'},
+  {date:'2 May', day:'Sat',team:'1st XI',opponents:'Coniston',          strip:'6', use:'Use 1',           status:'active'},
+  {date:'3 May', day:'Sun',team:'3rd XI',opponents:'Kendal 3',          strip:'6', use:'Use 2 → Renovate',status:'renovate'},
+  {date:'9 May', day:'Sat',team:'2nd XI',opponents:'Cartmel',           strip:'12',use:'Use 2 → Renovate',status:'renovate'},
+  {date:'10 May',day:'Sun',team:'3rd XI',opponents:'Ingleton 2',        strip:'14',use:'Use 1',           status:'active'},
+  {date:'23 May',day:'Sat',team:'1st XI',opponents:'Morecambe 2s',      strip:'10',use:'Use 1',           status:'active'},
+  {date:'24 May',day:'Sun',team:'2nd XI',opponents:'Millom (Cup)',      strip:'4', use:'Use 1',           status:'active'},
+  {date:'25 May',day:'Mon',team:'3rd XI',opponents:'Shireshead 3',      strip:'10',use:'Use 2 → Renovate',status:'renovate'},
+  {date:'31 May',day:'Sun',team:'3rd XI',opponents:'Kirkby Lonsdale 1', strip:'7', use:'Use 1',           status:'active'},
+  {date:'6 Jun', day:'Sat',team:'2nd XI',opponents:'Vickerstown',       strip:'14',use:'Use 2 → Renovate',status:'renovate'},
+  {date:'7 Jun', day:'Sun',team:'3rd XI',opponents:'Milnthorpe 2',      strip:'4', use:'Use 2 → Renovate',status:'renovate'},
+  {date:'13 Jun',day:'Sat',team:'1st XI',opponents:'Holme',             strip:'7', use:'Use 2 → Renovate',status:'renovate'},
+  {date:'20 Jun',day:'Sat',team:'2nd XI',opponents:'Hawcoat Park',      strip:'13',use:'Use 1',           status:'active'},
+  {date:'27 Jun',day:'Sat',team:'1st XI',opponents:"Settle 2s",         strip:'9', use:'Use 1',           status:'active'},
+  {date:'28 Jun',day:'Sun',team:'3rd XI',opponents:'Heysham 3',         strip:'9', use:'Use 2 → Renovate',status:'renovate'},
+  {date:'4 Jul', day:'Sat',team:'2nd XI',opponents:'Silverdale',        strip:'13',use:'Use 2 → Renovate',status:'renovate'},
+  {date:'11 Jul',day:'Sat',team:'1st XI',opponents:'Arnside',           strip:'11',use:'Use 1',           status:'active'},
+  {date:'18 Jul',day:'Sat',team:'1st XI',opponents:'Lindal Moor',       strip:'11',use:'Use 2 → Renovate',status:'renovate'},
+  {date:'25 Jul',day:'Sat',team:'2nd XI',opponents:'Kirkby in Furness', strip:'5', use:'Use 1',           status:'active'},
+  {date:'26 Jul',day:'Sun',team:'3rd XI',opponents:'Coniston 2',        strip:'5', use:'Use 2 → Renovate',status:'renovate'},
+  {date:'1 Aug', day:'Sat',team:'1st XI',opponents:'Carnforth',         strip:'8', use:'Use 3 (post-reno)',status:'postreno'},
+  {date:'2 Aug', day:'Sun',team:'3rd XI',opponents:'Bare 3',            strip:'8', use:'Use 4 → Renovate',status:'renovate'},
+  {date:'8 Aug', day:'Sat',team:'1st XI',opponents:'Appleby Eden',      strip:'6', use:'Use 3 (post-reno)',status:'postreno'},
+  {date:'15 Aug',day:'Sat',team:'2nd XI',opponents:'Milnthorpe',        strip:'12',use:'Use 3 (post-reno)',status:'postreno'},
+  {date:'22 Aug',day:'Sat',team:'2nd XI',opponents:'Shireshead 2s',     strip:'14',use:'Use 3 (post-reno)',status:'postreno'},
+  {date:'29 Aug',day:'Sat',team:'1st XI',opponents:'Haverigg',          strip:'10',use:'Use 3 (post-reno)',status:'postreno'},
+  {date:'30 Aug',day:'Sun',team:'3rd XI',opponents:'Barrow 3',          strip:'10',use:'Use 4 → Renovate',status:'renovate'},
+  {date:'5 Sep', day:'Sat',team:'2nd XI',opponents:'Kendal 2s',         strip:'4', use:'Use 3 (post-reno)',status:'postreno'},
+  {date:'12 Sep',day:'Sat',team:'1st XI',opponents:'Warton',            strip:'7', use:'Use 3 (post-reno)',status:'postreno'},
+];
+
+const STRIP_INFO = {
+  '1':  {zone:'Junior',    label:'U9/U11',   type:'junior'},
+  '2':  {zone:'Junior',    label:'U13/Ladies',type:'junior'},
+  '3':  {zone:'Junior',    label:'U16/Ladies',type:'junior'},
+  '4':  {zone:'2nd/3rd XI',label:'2nd/3rd',  type:'match'},
+  '5':  {zone:'2nd/3rd XI',label:'2nd/3rd',  type:'match'},
+  '6':  {zone:'1st XI',    label:'1st XI',   type:'match'},
+  '7':  {zone:'1st XI',    label:'1st XI',   type:'match'},
+  '8':  {zone:'1st XI',    label:'1st XI',   type:'match'},
+  '9':  {zone:'1st XI',    label:'1st XI',   type:'match'},
+  '10': {zone:'1st XI',    label:'1st XI',   type:'match'},
+  '11': {zone:'1st XI',    label:'1st XI',   type:'match'},
+  '12': {zone:'2nd/3rd XI',label:'2nd/3rd',  type:'match'},
+  '13': {zone:'2nd/3rd XI',label:'2nd/3rd',  type:'match'},
+  '14': {zone:'2nd/3rd XI',label:'2nd/3rd',  type:'match'},
+  '15': {zone:'Practice',  label:'Practice', type:'practice'},
+};
+
+const PREP_PLAN = [
+  {day:'Day -10',acts:'Roll ×3 → Brush → Cut',         hoc:'12–13mm',notes:'Roll first to stand grass, brush up, then cut. Assess sward density.'},
+  {day:'Day -8', acts:'Verticut (1–3 passes) → Roll ×2',hoc:'11mm',  notes:'Light thinning pass. Log number of passes based on sward density.'},
+  {day:'Day -6', acts:'Roll → Brush → Cut → Verticut',  hoc:'10mm',  notes:'Cut first then light verticut tidy. Lighter than Day -8.'},
+  {day:'Day -4', acts:'Verticut (1–3 passes) → Roll ×2',hoc:'9mm',   notes:'Final thinning pass. Surface should be firming noticeably.'},
+  {day:'Day -1', acts:'Roll → Brush → Cut → Roll ×2',   hoc:'8mm',   notes:'Match day HOC achieved. Surface should be hard underfoot.'},
+  {day:'Day 0',  acts:'Light roll → Mark → Water if dry',hoc:'8mm',  notes:'Match morning only. Irrigate gently if dry spell.'},
+];
+
+const RENO_STEPS = [
+  {step:'1',act:'Mow to tidy',    notes:'Remove remaining standing grass, collect clippings.'},
+  {step:'2',act:'Sorrel spike',   notes:'Full length of strip. Opens surface for seed-to-soil contact.'},
+  {step:'3',act:'Overseed',       notes:'Log seed variety and rate used (kg/m²).'},
+  {step:'4',act:'Level with loam',notes:'Fill footmarks and depressions. Work in with drag mat if available.'},
+  {step:'5',act:'Water',          notes:'Gentle soak to bed seed in. Do not waterlog.'},
+  {step:'6',act:'Rest — 6+ weeks',notes:'Mark strip as renovating. Minimum 6 weeks before next use.'},
+];
+
+// ════════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════════
+window.addEventListener('load', async () => {
+  state.fixtures = JSON.parse(JSON.stringify(SEED_FIXTURES));
+  // Load any locally saved overrides
+  const saved = localStorage.getItem('scc_fixtures');
+  if (saved) state.fixtures = JSON.parse(saved);
+  const savedLogs = localStorage.getItem('scc_preplogs');
+  if (savedLogs) state.prepLogs = JSON.parse(savedLogs);
+  const savedMatch = localStorage.getItem('scc_matchlogs');
+  if (savedMatch) state.matchLogs = JSON.parse(savedMatch);
+
+  renderSquareMap();
+  renderFixtures();
+  renderPrepPlan();
+  renderRecentLogs();
+  renderReports();
+  populateFormSelects();
+
+  setTimeout(() => {
+    document.getElementById('loading').style.opacity = '0';
+    setTimeout(() => document.getElementById('loading').style.display = 'none', 400);
+  }, 900);
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab, .bottom-nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  document.querySelectorAll(`[data-tab="${tab}"]`).forEach(b => b.classList.add('active'));
+  document.getElementById('header-back').style.display = 'none';
+  document.getElementById('nav-tabs').style.display = 'flex';
+  document.getElementById('bottom-nav').style.display = 'flex';
+  const titles = {square:'Sedgwick CC',fixtures:'Fixtures',prepplan:'Prep Plan',log:'Log Work',reports:'Reports',print:'Print View'};
+  document.getElementById('header-title-text').textContent = titles[tab] || 'Sedgwick CC';
+  document.getElementById('header-subtitle').textContent = '2026 Season';
+  state.navHistory = [tab];
+}
+
+function showStripDetail(stripNum) {
+  state.currentStrip = stripNum;
+  renderStripDetail(stripNum);
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-strip').classList.add('active');
+  document.querySelectorAll('.nav-tab, .bottom-nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('header-back').style.display = 'block';
+  document.getElementById('nav-tabs').style.display = 'none';
+  document.getElementById('bottom-nav').style.display = 'none';
+  document.getElementById('header-title-text').textContent = `Strip ${stripNum}`;
+  document.getElementById('header-subtitle').textContent = STRIP_INFO[stripNum]?.zone || '';
+}
+
+function goBack() {
+  switchTab('square');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SQUARE MAP
+// ════════════════════════════════════════════════════════════════════════════
+function getStripStatus(stripNum) {
+  const info = STRIP_INFO[stripNum];
+  if (!info) return 'available';
+  if (info.type === 'junior') return 'junior';
+  if (info.type === 'practice') return 'practice';
+  // Find upcoming fixtures for this strip
+  const upcoming = state.fixtures.filter(f => f.strip === stripNum && f.status !== 'cancelled');
+  if (upcoming.length === 0) return 'available';
+  // Check if any are in prep
+  const inPrep = upcoming.find(f => f.status === 'prep');
+  if (inPrep) return 'prep';
+  const renovating = upcoming.find(f => f.status === 'renovating');
+  if (renovating) return 'renovating';
+  const hasUpcoming = upcoming.find(f => f.status === 'active' || f.status === 'postreno');
+  if (hasUpcoming) return 'upcoming';
+  return 'available';
+}
+
+function renderSquareMap() {
+  const grid = document.getElementById('square-grid');
+  grid.innerHTML = '';
+  let upcoming = [];
+  for (let i = 1; i <= 15; i++) {
+    const s = String(i);
+    const status = getStripStatus(s);
+    const btn = document.createElement('button');
+    btn.className = `strip-btn strip-${status}`;
+    btn.innerHTML = `<span class="strip-num">${i}</span><span class="strip-status-dot"></span>`;
+    btn.onclick = () => showStripDetail(s);
+    grid.appendChild(btn);
+    // Collect upcoming for next fixtures list
+    const fix = state.fixtures.filter(f => f.strip === s && (f.status === 'active' || f.status === 'postreno'));
+    upcoming = upcoming.concat(fix);
+  }
+  // Next fixtures
+  const list = document.getElementById('upcoming-fixtures-list');
+  const today = new Date();
+  upcoming.sort((a,b) => parseDateStr(a.date) - parseDateStr(b.date));
+  const next = upcoming.slice(0,6);
+  document.getElementById('upcoming-count').textContent = upcoming.length;
+  if (next.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>No upcoming fixtures.</p></div>';
+    return;
+  }
+  list.innerHTML = next.map(f => fixtureItemHTML(f)).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// FIXTURES PAGE
+// ════════════════════════════════════════════════════════════════════════════
+function renderFixtures(filter) {
+  filter = filter || state.currentFixtureFilter;
+  const list = document.getElementById('fixtures-list');
+  let fx = state.fixtures;
+  if (filter && filter !== 'all') fx = fx.filter(f => f.team === filter);
+  if (fx.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">📅</div><p>No fixtures found.</p></div>';
+    return;
+  }
+  list.innerHTML = fx.map(f => fixtureItemHTML(f, true)).join('');
+  // Show admin edit button if logged in
+  document.getElementById('admin-fixture-btn').style.display = state.isAdmin ? 'block' : 'none';
+}
+
+function filterFixtures(filter, btn) {
+  state.currentFixtureFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderFixtures(filter);
+}
+
+function fixtureItemHTML(f, showEdit) {
+  const teamClass = f.team === '1st XI' ? 'team-1st' : f.team === '2nd XI' ? 'team-2nd' : 'team-3rd';
+  const teamPill  = f.team === '1st XI' ? 't1' : f.team === '2nd XI' ? 't2' : 't3';
+  const statusMap = {active:'upcoming',prep:'prep',played:'played',renovate:'renovate',postreno:'played',cancelled:'cancelled',rescheduled:'upcoming'};
+  const statusLabel = {active:'Upcoming',prep:'In Prep',played:'Played',renovate:'Renovate after',postreno:'Post-reno',cancelled:'Cancelled',rescheduled:'Rescheduled'};
+  const sp = statusMap[f.status] || 'upcoming';
+  const editBtn = (showEdit && state.isAdmin)
+    ? `<button class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:0.65rem" onclick="event.stopPropagation();editFixture(${state.fixtures.indexOf(f)})">Edit</button>` : '';
+  return `
+    <div class="fixture-item ${teamClass} status-${f.status}" onclick="showStripDetail('${f.strip}')">
+      <div class="fixture-meta">
+        <span class="fixture-date">${f.day} ${f.date}</span>
+        <span class="fixture-strip-badge">Strip ${f.strip}</span>
+      </div>
+      <div class="fixture-opponents">${f.opponents}</div>
+      <div class="fixture-footer">
+        <span class="team-pill ${teamPill}">${f.team}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="status-pill sp-${sp}">${statusLabel[f.status] || f.status}</span>
+          ${editBtn}
+        </div>
+      </div>
+      ${f.changeNote ? `<div class="text-sm text-muted mt-8" style="font-style:italic">📝 ${f.changeNote}</div>` : ''}
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// STRIP DETAIL
+// ════════════════════════════════════════════════════════════════════════════
+function renderStripDetail(stripNum) {
+  const info = STRIP_INFO[stripNum] || {};
+  const fixtures = state.fixtures.filter(f => f.strip === stripNum);
+  const logs = state.prepLogs.filter(l => l.strip === stripNum);
+  const matches = state.matchLogs.filter(m => m.strip === stripNum);
+  const status = getStripStatus(stripNum);
+  const statusLabels = {available:'Available',upcoming:'Fixtures Assigned',prep:'Prep In Progress',
+    renovating:'Renovating',junior:'Junior Use',practice:'Practice Only',played:'Season Complete'};
+  const statusClass = {available:'sb-available',upcoming:'sb-upcoming',prep:'sb-prep',
+    renovating:'sb-renovating',junior:'sb-available',practice:'sb-available'}[status] || 'sb-available';
+
+  const editBtn = state.isAdmin
+    ? `<button class="btn btn-gold btn-sm mt-16" onclick="showAddFixtureModal('${stripNum}')">+ Add Fixture to Strip</button>` : '';
+
+  let html = `
+    <div class="strip-detail-header">
+      <div class="strip-number-big">${stripNum}</div>
+      <div class="strip-zone-label">${info.zone || 'Strip'}</div>
+    </div>
+    <div class="status-banner ${statusClass}">
+      <span style="font-size:1rem">
+        ${status==='available'?'✅':status==='prep'?'🔵':status==='renovating'?'🔴':status==='upcoming'?'🟡':'⚪'}
+      </span>
+      ${statusLabels[status] || status}
+    </div>`;
+
+  // Fixtures
+  html += `<div class="section-title">Fixtures <span class="count">${fixtures.length}</span></div>`;
+  if (fixtures.length === 0) {
+    html += '<p class="text-sm text-muted">No fixtures assigned to this strip.</p>';
+  } else {
+    html += fixtures.map(f => fixtureItemHTML(f, true)).join('');
+  }
+  html += editBtn;
+
+  // Prep plan for this strip (show prep start dates)
+  const nextFix = fixtures.find(f => f.status === 'active' || f.status === 'postreno');
+  if (nextFix) {
+    html += `<div class="section-title mt-16">Prep Schedule for ${nextFix.date}</div>`;
+    html += PREP_PLAN.map(p => `
+      <div class="prep-step">
+        <div class="prep-day-badge${p.day==='Day 0'?' day-0':''}">${p.day}</div>
+        <div class="prep-content">
+          <div class="prep-activities">${p.acts}</div>
+          <span class="prep-hoc">${p.hoc}</span>
+        </div>
+      </div>`).join('');
+  }
+
+  // Prep logs
+  html += `<div class="section-title mt-16">Prep Log <span class="count">${logs.length}</span></div>`;
+  if (logs.length === 0) {
+    html += '<p class="text-sm text-muted">No prep logged yet for this strip.</p>';
+  } else {
+    html += logs.map(l => `
+      <div class="log-entry" style="border-color:var(--green-field)">
+        <div class="log-entry-header">
+          <span>${l.date}</span><span>${l.plannedDay || ''}</span>
+        </div>
+        <div class="log-entry-body">${l.activities || '—'}</div>
+        ${l.hoc ? `<div class="text-sm">HOC: ${l.hoc}mm</div>` : ''}
+        ${l.conditions ? `<div class="text-sm text-muted">${l.conditions}</div>` : ''}
+        ${l.notes ? `<div class="text-sm text-muted">${l.notes}</div>` : ''}
+        <div class="log-by">Logged by: ${l.name || 'Unknown'}</div>
+      </div>`).join('');
+  }
+
+  // Match reports
+  html += `<div class="section-title mt-16">Match Reports <span class="count">${matches.length}</span></div>`;
+  if (matches.length === 0) {
+    html += '<p class="text-sm text-muted">No match reports for this strip yet.</p>';
+  } else {
+    html += matches.map(m => `
+      <div class="log-entry" style="border-color:var(--blue-team)">
+        <div class="log-entry-header"><span>${m.fixture || '—'}</span><span>⭐ ${m.overall || '—'}/5</span></div>
+        <div class="log-entry-body">Pace: ${m.pace||'—'}/5 · Bounce: ${m.bounce||'—'}/5 · Spin: ${m.spin||'—'}/5</div>
+        ${m.wear && m.wear.length ? `<div class="text-sm text-muted">Wear: ${m.wear.join(', ')}</div>` : ''}
+        ${m.notes ? `<div class="text-sm text-muted">${m.notes}</div>` : ''}
+        <div class="log-by">Reported by: ${m.name || 'Unknown'}</div>
+      </div>`).join('');
+  }
+
+  document.getElementById('strip-detail-content').innerHTML = html;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PREP PLAN PAGE
+// ════════════════════════════════════════════════════════════════════════════
+function renderPrepPlan() {
+  document.getElementById('prep-plan-steps').innerHTML = PREP_PLAN.map(p => `
+    <div class="prep-step">
+      <div class="prep-day-badge${p.day==='Day 0'?' day-0':''}">${p.day}</div>
+      <div class="prep-content">
+        <div class="prep-activities">${p.acts}</div>
+        <span class="prep-hoc">${p.hoc}</span>
+        <div class="prep-notes">${p.notes}</div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('reno-steps').innerHTML = RENO_STEPS.map(r => `
+    <div class="prep-step">
+      <div class="prep-day-badge reno">${r.step}</div>
+      <div class="prep-content">
+        <div class="prep-activities">${r.act}</div>
+        <div class="prep-notes">${r.notes}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// RECENT LOGS
+// ════════════════════════════════════════════════════════════════════════════
+function renderRecentLogs() {
+  const all = [
+    ...state.prepLogs.map(l => ({...l, type:'prep'})),
+    ...state.matchLogs.map(m => ({...m, type:'match'}))
+  ].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 20);
+
+  document.getElementById('log-count').textContent = all.length;
+  const list = document.getElementById('recent-logs-list');
+  if (all.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">✏️</div><p>No entries yet this season.</p></div>';
+    return;
+  }
+  list.innerHTML = all.map(entry => {
+    if (entry.type === 'prep') return `
+      <div class="log-entry" style="border-color:var(--green-field)">
+        <div class="log-entry-header"><span>Strip ${entry.strip} — ${entry.date}</span><span class="team-pill t1">Prep</span></div>
+        <div class="log-entry-body">${entry.activities || '—'}</div>
+        ${entry.conditions ? `<div class="text-sm text-muted">${entry.conditions}</div>` : ''}
+        <div class="log-by">By: ${entry.name || '?'}</div>
+      </div>`;
+    return `
+      <div class="log-entry" style="border-color:var(--blue-team)">
+        <div class="log-entry-header"><span>Strip ${entry.strip}</span><span class="team-pill t2">Match</span></div>
+        <div class="log-entry-body">${entry.fixture || '—'} · ⭐ ${entry.overall||'?'}/5</div>
+        <div class="log-by">By: ${entry.name || '?'}</div>
+      </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// REPORTS PAGE
+// ════════════════════════════════════════════════════════════════════════════
+function renderReports() {
+  const total = state.fixtures.length;
+  const played = state.fixtures.filter(f => f.status === 'played').length;
+  const reno   = state.fixtures.filter(f => f.status === 'renovate' || f.status === 'renovating').length;
+  const logs   = state.prepLogs.length;
+  const matches= state.matchLogs.length;
+
+  document.getElementById('season-stats').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="text-align:center;padding:12px;background:var(--green-pale);border-radius:8px">
+        <div style="font-size:2rem;font-family:'Libre Baskerville',serif;color:var(--green-dark)">${total}</div>
+        <div style="font-size:0.7rem;color:var(--text-light);text-transform:uppercase">Total Fixtures</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:var(--green-pale);border-radius:8px">
+        <div style="font-size:2rem;font-family:'Libre Baskerville',serif;color:var(--green-dark)">${played}</div>
+        <div style="font-size:0.7rem;color:var(--text-light);text-transform:uppercase">Played</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:var(--blue-light);border-radius:8px">
+        <div style="font-size:2rem;font-family:'Libre Baskerville',serif;color:var(--blue-team)">${logs}</div>
+        <div style="font-size:0.7rem;color:var(--text-light);text-transform:uppercase">Prep Logs</div>
+      </div>
+      <div style="text-align:center;padding:12px;background:var(--orange-light);border-radius:8px">
+        <div style="font-size:2rem;font-family:'Libre Baskerville',serif;color:var(--orange-team)">${matches}</div>
+        <div style="font-size:0.7rem;color:var(--text-light);text-transform:uppercase">Match Reports</div>
+      </div>
+    </div>`;
+
+  const list = document.getElementById('match-reports-list');
+  if (state.matchLogs.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">🏏</div><p>No match reports yet.</p></div>';
+    return;
+  }
+  list.innerHTML = state.matchLogs.map(m => `
+    <div class="log-entry" style="border-color:var(--blue-team)">
+      <div class="log-entry-header"><span>Strip ${m.strip} — ${m.fixture||'—'}</span><span>⭐ ${m.overall||'?'}/5</span></div>
+      <div class="log-entry-body">Pace: ${m.pace||'?'} · Bounce: ${m.bounce||'?'} · Spin: ${m.spin||'?'}</div>
+      ${m.notes ? `<div class="text-sm text-muted">${m.notes}</div>` : ''}
+      <div class="log-by">By: ${m.name || '?'}</div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PRINT VIEW
+// ════════════════════════════════════════════════════════════════════════════
+function showPrintView() {
+  const rows = state.fixtures.map(f => `
+    <tr class="row-${f.status}">
+      <td>${f.date}</td><td>${f.day}</td>
+      <td class="team-${f.team.replace(' ','').toLowerCase()}">${f.team}</td>
+      <td>${f.opponents}</td>
+      <td class="strip-cell">Strip ${f.strip}</td>
+      <td>${f.use}</td>
+      <td>${f.status}</td>
+    </tr>`).join('');
+
+  document.getElementById('print-content').innerHTML = `
+    <div style="text-align:center;margin-bottom:20px" class="no-print">
+      <button class="btn btn-primary btn-sm" onclick="window.print()">🖨️ Print / Save as PDF</button>
+      <button class="btn btn-secondary btn-sm mt-8" onclick="switchTab('reports')">← Back</button>
+    </div>
+    <div style="font-family:'Libre Baskerville',serif">
+      <div style="text-align:center;margin-bottom:16px">
+        <h1 style="font-size:1.6rem;color:var(--green-dark)">Sedgwick Cricket Club</h1>
+        <h2 style="font-size:1.1rem;color:var(--text-mid);font-weight:normal">2026 Season — Fixture & Strip Allocation Plan</h2>
+        <p style="font-size:0.75rem;color:var(--text-light);margin-top:4px">Max 2 uses per strip · No adjacent strips in use simultaneously · 3rd XI piggybacks previous day's strip</p>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-family:'DM Sans',sans-serif;font-size:0.8rem">
+        <thead>
+          <tr style="background:var(--green-dark);color:white">
+            <th style="padding:8px;text-align:left">Date</th>
+            <th style="padding:8px;text-align:left">Day</th>
+            <th style="padding:8px;text-align:left">Team</th>
+            <th style="padding:8px;text-align:left">Opponents</th>
+            <th style="padding:8px;text-align:center">Strip</th>
+            <th style="padding:8px;text-align:left">Use</th>
+            <th style="padding:8px;text-align:left">Status</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:16px;display:flex;gap:16px;font-size:0.7rem;flex-wrap:wrap">
+        <div><span style="display:inline-block;width:12px;height:12px;background:var(--green-light);border-radius:2px;margin-right:4px"></span>1st XI</div>
+        <div><span style="display:inline-block;width:12px;height:12px;background:var(--blue-light);border-radius:2px;margin-right:4px"></span>2nd XI</div>
+        <div><span style="display:inline-block;width:12px;height:12px;background:var(--orange-light);border-radius:2px;margin-right:4px"></span>3rd XI</div>
+        <div><span style="display:inline-block;width:12px;height:12px;background:var(--red-light);border-radius:2px;margin-right:4px"></span>Renovate after</div>
+        <div><span style="display:inline-block;width:12px;height:12px;background:var(--green-pale);border: 1px solid var(--gold);border-radius:2px;margin-right:4px"></span>Post-renovation</div>
+      </div>
+      <p style="margin-top:12px;font-size:0.65rem;color:var(--text-light);text-align:center">
+        Printed from Sedgwick CC Pitch Manager · ${new Date().toLocaleDateString('en-GB')}
+      </p>
+    </div>`;
+
+  // Inject print row colours
+  const style = document.createElement('style');
+  style.id = 'print-row-styles';
+  style.textContent = `
+    .row-active td, .row-postreno td { background: #f7fff7; }
+    .row-renovate td { background: #fff7f7; }
+    .team-1stxi td:nth-child(3) { background: var(--green-light); }
+    tbody tr:nth-child(even) td { filter: brightness(0.97); }
+    @media print {
+      .strip-cell { font-weight:700; color: var(--green-dark); }
+    }
+  `;
+  document.head.appendChild(style);
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-print').classList.add('active');
+  document.getElementById('header-back').style.display = 'block';
+  document.getElementById('nav-tabs').style.display = 'none';
+  document.getElementById('bottom-nav').style.display = 'none';
+  document.getElementById('header-title-text').textContent = 'Print View';
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PIN SYSTEM
+// ════════════════════════════════════════════════════════════════════════════
+function showPinModal(action) {
+  state.pendingPinAction = action;
+  state.pinBuffer = '';
+  updatePinDots();
+  document.getElementById('pin-error').style.display = 'none';
+  if (state.isAdmin && action === 'admin') {
+    // Already logged in — toggle off
+    state.isAdmin = false;
+    document.getElementById('admin-btn').textContent = '⚙';
+    document.getElementById('admin-fixture-btn').style.display = 'none';
+    notify('Admin mode off');
+    return;
+  }
+  openModal('pin-modal');
+}
+
+function pinPress(key) {
+  if (key === 'clear') { state.pinBuffer = ''; }
+  else if (key === 'del') { state.pinBuffer = state.pinBuffer.slice(0,-1); }
+  else if (state.pinBuffer.length < 4) { state.pinBuffer += key; }
+  updatePinDots();
+  if (state.pinBuffer.length === 4) {
+    setTimeout(checkPin, 150);
+  }
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('d'+i).classList.toggle('filled', i < state.pinBuffer.length);
+  }
+}
+
+function checkPin() {
+  if (state.pinBuffer === state.correctPin) {
+    closeModal('pin-modal');
+    state.isAdmin = true;
+    document.getElementById('admin-btn').textContent = '🔓';
+    document.getElementById('admin-fixture-btn').style.display = 'block';
+    renderFixtures();
+    notify('Admin mode on — fixture editing enabled');
+  } else {
+    document.getElementById('pin-error').style.display = 'block';
+    state.pinBuffer = '';
+    updatePinDots();
+    // Shake effect
+    document.getElementById('pin-display').style.animation = 'none';
+    setTimeout(() => {
+      document.getElementById('pin-display').style.animation = '';
+    }, 10);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// LOG SUBMISSION
+// ════════════════════════════════════════════════════════════════════════════
+function showLogModal(type) {
+  populateFormSelects();
+  document.getElementById('log-date').value = new Date().toISOString().split('T')[0];
+  if (type === 'prep') openModal('prep-log-modal');
+  else openModal('match-log-modal');
+}
+
+function submitPrepLog() {
+  const name = document.getElementById('log-name').value.trim();
+  const strip = document.getElementById('log-strip').value;
+  const date = document.getElementById('log-date').value;
+  if (!name || !strip || !date) { notify('Please fill in name, strip and date'); return; }
+
+  const activities = [...document.querySelectorAll('#prep-log-modal input[name="activity"]:checked')]
+    .map(cb => cb.value).join(', ');
+  const entry = {
+    name, strip, date,
+    fixture: document.getElementById('log-fixture').value,
+    plannedDay: document.getElementById('log-planned-day').value,
+    activities,
+    hoc: document.getElementById('log-hoc').value,
+    verticut: document.querySelector('#prep-log-modal .rating-btn.selected[data-group="vc-passes"]')?.textContent,
+    conditions: document.getElementById('log-conditions').value,
+    notes: document.getElementById('log-notes').value,
+    timestamp: new Date().toISOString(),
+  };
+
+  state.prepLogs.unshift(entry);
+  localStorage.setItem('scc_preplogs', JSON.stringify(state.prepLogs));
+  closeModal('prep-log-modal');
+  renderRecentLogs();
+  renderReports();
+  notify('Prep log saved ✓');
+
+  // TODO: write to Google Sheet
+  writeToSheet(CONFIG.PREPLOG_TAB, entry);
+}
+
+function submitMatchReport() {
+  const name = document.getElementById('mr-name').value.trim();
+  const fixture = document.getElementById('mr-fixture').value;
+  if (!name || !fixture) { notify('Please fill in name and fixture'); return; }
+
+  const wear = [...document.querySelectorAll('#match-log-modal input[name="wear"]:checked')]
+    .map(cb => cb.value);
+  const stripNum = state.fixtures.find(f => `${f.date} — ${f.opponents} (${f.team})` === fixture)?.strip || '';
+
+  const entry = {
+    name, fixture, strip: stripNum,
+    result: document.getElementById('mr-result').value,
+    pace:    document.querySelector('[data-group="mr-pace"].selected')?.textContent,
+    bounce:  document.querySelector('[data-group="mr-bounce"].selected')?.textContent,
+    spin:    document.querySelector('[data-group="mr-spin"].selected')?.textContent,
+    overall: document.querySelector('[data-group="mr-overall"].selected')?.textContent,
+    wear, notes: document.getElementById('mr-notes').value,
+    timestamp: new Date().toISOString(),
+  };
+
+  state.matchLogs.unshift(entry);
+  localStorage.setItem('scc_matchlogs', JSON.stringify(state.matchLogs));
+  closeModal('match-log-modal');
+  renderRecentLogs();
+  renderReports();
+  notify('Match report saved ✓');
+  writeToSheet(CONFIG.MATCHLOG_TAB, entry);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// FIXTURE EDITING (admin only)
+// ════════════════════════════════════════════════════════════════════════════
+function editFixture(idx) {
+  if (!state.isAdmin) { showPinModal('admin'); return; }
+  const f = state.fixtures[idx];
+  document.getElementById('ef-index').value = idx;
+  document.getElementById('ef-date').value = f.date;
+  document.getElementById('ef-day').value = f.day;
+  document.getElementById('ef-team').value = f.team;
+  document.getElementById('ef-opponents').value = f.opponents;
+  document.getElementById('ef-strip').value = f.strip;
+  document.getElementById('ef-status').value = f.status;
+  document.getElementById('ef-notes').value = f.changeNote || '';
+  openModal('edit-fixture-modal');
+}
+
+function saveFixtureEdit() {
+  const idx = parseInt(document.getElementById('ef-index').value);
+  const f = state.fixtures[idx];
+  const note = document.getElementById('ef-notes').value;
+  state.fixtures[idx] = {
+    ...f,
+    date:      document.getElementById('ef-date').value,
+    day:       document.getElementById('ef-day').value,
+    team:      document.getElementById('ef-team').value,
+    opponents: document.getElementById('ef-opponents').value,
+    strip:     document.getElementById('ef-strip').value,
+    status:    document.getElementById('ef-status').value,
+    changeNote: note || undefined,
+    lastEdited: new Date().toISOString(),
+  };
+  saveFixtures();
+  closeModal('edit-fixture-modal');
+  renderFixtures();
+  renderSquareMap();
+  notify('Fixture updated ✓');
+}
+
+function cancelFixture() {
+  const idx = parseInt(document.getElementById('ef-index').value);
+  state.fixtures[idx].status = 'cancelled';
+  state.fixtures[idx].changeNote = document.getElementById('ef-notes').value || 'Cancelled';
+  saveFixtures();
+  closeModal('edit-fixture-modal');
+  renderFixtures();
+  renderSquareMap();
+  notify('Fixture cancelled');
+}
+
+function showAddFixtureModal(strip) {
+  document.getElementById('ef-index').value = -1;
+  document.getElementById('ef-date').value = '';
+  document.getElementById('ef-day').value = 'Sat';
+  document.getElementById('ef-team').value = '1st XI';
+  document.getElementById('ef-opponents').value = '';
+  document.getElementById('ef-strip').value = strip || '8';
+  document.getElementById('ef-status').value = 'active';
+  document.getElementById('ef-notes').value = '';
+  openModal('edit-fixture-modal');
+}
+
+function saveFixtures() {
+  localStorage.setItem('scc_fixtures', JSON.stringify(state.fixtures));
+  writeToSheet(CONFIG.FIXTURES_TAB, state.fixtures);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// GOOGLE SHEETS (stub — replace with real API calls)
+// ════════════════════════════════════════════════════════════════════════════
+async function refreshData() {
+  const btn = document.getElementById('refresh-btn');
+  btn.textContent = '↻ …';
+  try {
+    // TODO: fetch from Google Sheets API
+    // const data = await fetchSheetData(CONFIG.FIXTURES_TAB);
+    // state.fixtures = parseFixtures(data);
+    notify('Data synced ✓');
+  } catch(e) {
+    notify('Sync failed — using local data');
+  }
+  btn.textContent = '↻ Sync';
+  renderSquareMap();
+  renderFixtures();
+  renderRecentLogs();
+  renderReports();
+}
+
+async function writeToSheet(tab, data) {
+  // TODO: implement Google Sheets API write
+  // Requires OAuth or API key with write access
+  console.log('writeToSheet:', tab, data);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function toggleCheck(el) {
+  el.classList.toggle('checked');
+  const cb = el.querySelector('input[type="checkbox"]');
+  cb.checked = !cb.checked;
+  // Show/hide HOC and verticut fields
+  const cutChecked = [...document.querySelectorAll('#prep-log-modal input[name="activity"]:checked')]
+    .some(c => c.value === 'Cut');
+  const vcChecked = [...document.querySelectorAll('#prep-log-modal input[name="activity"]:checked')]
+    .some(c => c.value === 'Verticut');
+  const hocSec = document.getElementById('hoc-section');
+  const vcSec  = document.getElementById('verticut-section');
+  if (hocSec) hocSec.style.display = cutChecked ? 'block' : 'none';
+  if (vcSec)  vcSec.style.display  = vcChecked  ? 'block' : 'none';
+}
+
+function selectRating(btn, group) {
+  const parent = btn.closest('.rating-group');
+  parent.querySelectorAll('.rating-btn').forEach(b => {
+    b.classList.remove('selected');
+    b.removeAttribute('data-group');
+  });
+  btn.classList.add('selected');
+  btn.setAttribute('data-group', group);
+}
+
+function populateFormSelects() {
+  // Strip selects
+  ['log-strip','ef-strip'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Select strip…</option>';
+    for (let i = 4; i <= 14; i++) {
+      if (i === 15) continue;
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = `Strip ${i} — ${STRIP_INFO[String(i)]?.zone || ''}`;
+      sel.appendChild(opt);
+    }
+  });
+
+  // Fixture selects
+  ['log-fixture','mr-fixture'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Select fixture…</option>';
+    state.fixtures.filter(f => f.status !== 'cancelled').forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = `${f.date} — ${f.opponents} (${f.team})`;
+      opt.textContent = `${f.date} — ${f.opponents} · Strip ${f.strip}`;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function notify(msg) {
+  const el = document.getElementById('notification');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function parseDateStr(str) {
+  const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  const parts = str.trim().split(' ');
+  if (parts.length < 2) return new Date();
+  return new Date(2026, months[parts[1]] ?? 0, parseInt(parts[0]));
+}
+
+// Close modals on overlay tap
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+</script>
+</body>
+</html>
