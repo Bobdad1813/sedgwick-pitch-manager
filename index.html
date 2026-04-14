@@ -1889,6 +1889,9 @@ function saveFixtures() {
 // GOOGLE SHEETS — Live connection via Apps Script
 // ════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Read from Google Sheet via GET request.
+ */
 async function appsScriptGet(action, params) {
   const url = new URL(CONFIG.APPS_SCRIPT_URL);
   url.searchParams.set('action', action);
@@ -1898,11 +1901,16 @@ async function appsScriptGet(action, params) {
   return res.json();
 }
 
+/**
+ * Write to Google Sheet via GET request with base64-encoded payload.
+ * This avoids CORS preflight issues with Google Apps Script web apps.
+ */
 async function appsScriptPost(action, data) {
-  const res = await fetch(CONFIG.APPS_SCRIPT_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action, data }),
-  });
+  const payload = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  const url = new URL(CONFIG.APPS_SCRIPT_URL);
+  url.searchParams.set('action', action);
+  url.searchParams.set('payload', payload);
+  const res = await fetch(url.toString());
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
@@ -1952,10 +1960,15 @@ async function refreshData() {
 async function writeToSheet(action, data) {
   try {
     const result = await appsScriptPost(action, data);
-    if (result.error) console.warn('Sheet write error:', result.error);
+    if (result && result.error) {
+      console.warn('Sheet write error:', result.error);
+    } else {
+      console.log('Sheet write OK:', action);
+    }
     return result;
   } catch(e) {
     console.warn('Sheet write failed:', e.message);
+    // Don't alert user — data is saved locally, sheet will sync next refresh
     return { error: e.message };
   }
 }
