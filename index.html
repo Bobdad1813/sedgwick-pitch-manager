@@ -1270,13 +1270,24 @@ window.addEventListener('load', async () => {
   renderReports();
   populateFormSelects();
 
+  // Show app immediately from cache — don't wait for sheet
   setTimeout(() => {
     document.getElementById('loading').style.opacity = '0';
     setTimeout(() => document.getElementById('loading').style.display = 'none', 400);
-  }, 900);
+  }, 600);
 
-  // Fetch live data from Google Sheet in background
-  fetchFromSheet();
+  // Fetch live data from sheet in background with 5 second timeout
+  const sheetTimeout = setTimeout(() => {
+    console.warn('Sheet fetch timed out — using cached data');
+    notify('Using cached data — tap ↻ Sync to retry');
+  }, 5000);
+
+  fetchFromSheet().then(() => {
+    clearTimeout(sheetTimeout);
+  }).catch(() => {
+    clearTimeout(sheetTimeout);
+    notify('Sheet unavailable — using cached data');
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1917,8 +1928,15 @@ async function appsScriptPost(action, data) {
 
 async function fetchFromSheet() {
   try {
-    // Fetch fixtures
-    const fixResult = await appsScriptGet('getFixtures');
+    // Fetch fixtures with timeout
+    const fetchWithTimeout = (promise, ms) => {
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout')), ms)
+      );
+      return Promise.race([promise, timeout]);
+    };
+
+    const fixResult = await fetchWithTimeout(appsScriptGet('getFixtures'), 8000);
     if (fixResult.fixtures && fixResult.fixtures.length > 0) {
       state.fixtures = fixResult.fixtures;
       localStorage.setItem('scc_fixtures', JSON.stringify(state.fixtures));
