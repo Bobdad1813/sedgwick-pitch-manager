@@ -311,6 +311,8 @@ body {
 .team-pill.t1 { background: var(--green-light); color: var(--green-dark); }
 .team-pill.t2 { background: var(--blue-light); color: var(--blue-team); }
 .team-pill.t3 { background: var(--orange-light); color: var(--orange-team); }
+.team-pill.tj { background: var(--amber-light); color: var(--amber); }
+.fixture-item.team-junior { border-color: var(--amber); }
 
 .status-pill {
   font-size: 0.6rem; font-weight: 600;
@@ -731,11 +733,16 @@ body {
     </div>
   </div>
 
-  <div style="display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px">
-    <button class="btn btn-secondary btn-sm filter-btn active" data-filter="all" onclick="filterFixtures('all',this)">All</button>
-    <button class="btn btn-secondary btn-sm filter-btn" data-filter="1st XI" onclick="filterFixtures('1st XI',this)">1st XI</button>
-    <button class="btn btn-secondary btn-sm filter-btn" data-filter="2nd XI" onclick="filterFixtures('2nd XI',this)">2nd XI</button>
-    <button class="btn btn-secondary btn-sm filter-btn" data-filter="3rd XI" onclick="filterFixtures('3rd XI',this)">3rd XI</button>
+  <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch">
+    <button class="btn btn-secondary btn-sm filter-btn active" data-filter="all" onclick="filterFixtures('all',this)" style="white-space:nowrap">All</button>
+    <button class="btn btn-secondary btn-sm filter-btn" data-filter="1st XI" onclick="filterFixtures('1st XI',this)" style="white-space:nowrap">1st XI</button>
+    <button class="btn btn-secondary btn-sm filter-btn" data-filter="2nd XI" onclick="filterFixtures('2nd XI',this)" style="white-space:nowrap">2nd XI</button>
+    <button class="btn btn-secondary btn-sm filter-btn" data-filter="3rd XI" onclick="filterFixtures('3rd XI',this)" style="white-space:nowrap">3rd XI</button>
+    <button class="btn btn-secondary btn-sm filter-btn" data-filter="Ladies" onclick="filterFixtures('Ladies',this)" style="white-space:nowrap;background:var(--orange-light);color:var(--orange-team)">Ladies</button>
+    <button class="btn btn-secondary btn-sm filter-btn" data-filter="U16" onclick="filterFixtures('U16',this)" style="white-space:nowrap">U16</button>
+    <button class="btn btn-secondary btn-sm filter-btn" data-filter="U13" onclick="filterFixtures('U13',this)" style="white-space:nowrap">U13</button>
+    <button class="btn btn-secondary btn-sm filter-btn" data-filter="U11" onclick="filterFixtures('U11',this)" style="white-space:nowrap">U11</button>
+    <button class="btn btn-secondary btn-sm filter-btn" data-filter="U9" onclick="filterFixtures('U9',this)" style="white-space:nowrap">U9</button>
   </div>
 
   <div id="fixtures-list">
@@ -1441,7 +1448,9 @@ function renderFixtures(filter) {
   filter = filter || state.currentFixtureFilter;
   const list = document.getElementById('fixtures-list');
   let fx = state.fixtures;
-  if (filter && filter !== 'all') fx = fx.filter(f => f.team === filter);
+  if (filter && filter !== 'all') {
+    fx = fx.filter(f => f.team === filter || f.team.startsWith(filter));
+  }
   if (fx.length === 0) {
     list.innerHTML = '<div class="empty-state"><div class="icon">📅</div><p>No fixtures found.</p></div>';
     return;
@@ -1459,8 +1468,12 @@ function filterFixtures(filter, btn) {
 }
 
 function fixtureItemHTML(f, showEdit) {
-  const teamClass = f.team === '1st XI' ? 'team-1st' : f.team === '2nd XI' ? 'team-2nd' : 'team-3rd';
-  const teamPill  = f.team === '1st XI' ? 't1' : f.team === '2nd XI' ? 't2' : 't3';
+  const teamClass = f.team === '1st XI' ? 'team-1st' :
+                    f.team === '2nd XI' ? 'team-2nd' :
+                    f.team === '3rd XI' ? 'team-3rd' : 'team-junior';
+  const teamPill  = f.team === '1st XI' ? 't1' :
+                    f.team === '2nd XI' ? 't2' :
+                    f.team === '3rd XI' ? 't3' : 'tj';
   const statusMap = {active:'upcoming',prep:'prep',played:'played',renovate:'renovate',postreno:'played',cancelled:'cancelled',rescheduled:'upcoming'};
   const statusLabel = {active:'Upcoming',prep:'In Prep',played:'Played',renovate:'Renovate after',postreno:'Post-reno',cancelled:'Cancelled',rescheduled:'Rescheduled'};
   const sp = statusMap[f.status] || 'upcoming';
@@ -1998,13 +2011,24 @@ async function appsScriptGet(action, params) {
  * This avoids CORS preflight issues with Google Apps Script web apps.
  */
 async function appsScriptPost(action, data) {
-  const payload = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-  const url = new URL(CONFIG.APPS_SCRIPT_URL);
-  url.searchParams.set('action', action);
-  url.searchParams.set('payload', payload);
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+  try {
+    // Safe base64 encoding that handles unicode
+    const json = JSON.stringify(data);
+    const bytes = new TextEncoder().encode(json);
+    const binStr = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
+    const payload = btoa(binStr);
+    const url = new URL(CONFIG.APPS_SCRIPT_URL);
+    url.searchParams.set('action', action);
+    url.searchParams.set('payload', payload);
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const result = await res.json();
+    console.log('Write result:', action, result);
+    return result;
+  } catch(e) {
+    console.error('appsScriptPost failed:', action, e.message);
+    throw e;
+  }
 }
 
 async function fetchFromSheet() {
