@@ -1149,6 +1149,15 @@ body {
           <option value="rescheduled">Rescheduled</option>
         </select>
       </div>
+      <div class="form-section" id="ef-3rdxi-mode-section" style="display:none">
+        <label class="form-label">3rd XI Strip Mode</label>
+        <select class="form-select" id="ef-3rdxi-mode">
+          <option value="auto">Auto — engine decides based on season timing</option>
+          <option value="piggyback">Piggyback — same weekend's strip</option>
+          <option value="2nd_use2">2nd XI Use 2 — second use of 2nd XI strip</option>
+          <option value="1st_use3">1st XI Use 3 — post-renovation 1st XI strip</option>
+        </select>
+      </div>
       <div class="form-section">
         <label class="form-label">Change Notes</label>
         <textarea class="form-textarea" id="ef-notes" placeholder="Reason for any changes…" style="min-height:60px"></textarea>
@@ -1229,6 +1238,34 @@ const SEED_FIXTURES = [
   {date:'30 Aug',day:'Sun',team:'3rd XI',opponents:'Barrow 3',                strip:'10',use:'Use 4 → Renovate', status:'renovate'},
   {date:'5 Sep', day:'Sat',team:'2nd XI',opponents:'Kendal 2s',               strip:'4', use:'Use 3 (post-reno)',status:'postreno'},
   {date:'12 Sep',day:'Sat',team:'1st XI',opponents:'Warton',                  strip:'7', use:'Use 3 (post-reno)',status:'postreno'},
+
+  // ── Junior & Ladies fixtures (strips 1–3, managed separately) ──────────
+  // Strip 1 — U9 / U11 SB
+  {date:'7 May',  day:'Thu',team:'U11 SB',  opponents:'Arnside',           strip:'1', use:'Fixed strip',status:'active'},
+  {date:'10 May', day:'Sun',team:'U9',      opponents:'Cartmel',           strip:'1', use:'Fixed strip',status:'active'},
+  {date:'13 May', day:'Wed',team:'U11 SB',  opponents:'Silverdale',        strip:'1', use:'Fixed strip',status:'active'},
+  {date:'17 May', day:'Sun',team:'U9',      opponents:'Arnside',           strip:'1', use:'Fixed strip',status:'active'},
+  {date:'1 Jun',  day:'Mon',team:'U11 SB',  opponents:'Milnthorpe',        strip:'1', use:'Fixed strip',status:'active'},
+  {date:'22 Jun', day:'Mon',team:'U11 SB',  opponents:'Cartmel',           strip:'1', use:'Fixed strip',status:'active'},
+  {date:'28 Jun', day:'Sun',team:'U9',      opponents:'Burneside Buffalos',strip:'1', use:'Fixed strip',status:'active'},
+  {date:'7 Jun',  day:'Sun',team:'U9',      opponents:'Ingleton',          strip:'1', use:'Fixed strip',status:'active'},
+
+  // Strip 2 — U13 / Ladies softball
+  {date:'6 May',  day:'Wed',team:'U13',     opponents:'Kirkby Stephen',    strip:'2', use:'Fixed strip',status:'active'},
+  {date:'10 Jun', day:'Wed',team:'U13',     opponents:'Appleby',           strip:'2', use:'Fixed strip',status:'active'},
+  {date:'24 Jun', day:'Wed',team:'U13',     opponents:'Netherfield',       strip:'2', use:'Fixed strip',status:'active'},
+  {date:'8 Jun',  day:'Mon',team:'Ladies',  opponents:'Arnside (softball)', strip:'2',use:'Fixed strip',status:'active'},
+  {date:'14 Jun', day:'Sun',team:'Ladies',  opponents:'Barrow (softball)', strip:'2', use:'Fixed strip',status:'active'},
+  {date:'26 Jul', day:'Sun',team:'Ladies',  opponents:'Ulverston (softball)',strip:'2',use:'Fixed strip',status:'active'},
+
+  // Strip 3 — U16 / Ladies hardball
+  {date:'3 Jun',  day:'Wed',team:'U16',     opponents:'TBC',               strip:'3', use:'Fixed strip',status:'active'},
+  {date:'18 Jun', day:'Thu',team:'U16',     opponents:'TBC',               strip:'3', use:'Fixed strip',status:'active'},
+  {date:'25 Jun', day:'Thu',team:'U16',     opponents:'TBC',               strip:'3', use:'Fixed strip',status:'active'},
+  {date:'4 Jun',  day:'Thu',team:'Ladies HB',opponents:'Netherfield',      strip:'3', use:'Fixed strip',status:'active'},
+  {date:'15 Jun', day:'Mon',team:'Ladies HB',opponents:'Kirkby Lonsdale',  strip:'3', use:'Fixed strip',status:'active'},
+  {date:'31 May', day:'Sun',team:'Ladies HB',opponents:'Ulverston (DH)',   strip:'3', use:'Fixed strip',status:'active'},
+  {date:'12 Jul', day:'Sun',team:'Ladies HB',opponents:'Carlisle (DH)',    strip:'3', use:'Fixed strip',status:'active'},
 ];
 
 const STRIP_INFO = {
@@ -1438,6 +1475,7 @@ function fixtureItemHTML(f, showEdit) {
           ${editBtn}
         </div>
       </div>
+      ${f.thirdXIMode && f.thirdXIMode !== 'auto' ? `<div class="text-sm text-muted mt-8">Mode: ${f.thirdXIMode}</div>` : ''}
       ${f.changeNote ? `<div class="text-sm text-muted mt-8" style="font-style:italic">📝 ${f.changeNote}</div>` : ''}
     </div>`;
 }
@@ -1861,6 +1899,17 @@ function editFixture(idx) {
   } else {
     pinItem.querySelector('.checkbox-label').textContent = '📌 Lock this strip — won\'t be moved by recalculate';
   }
+  // Show 3rd XI mode selector only for 3rd XI fixtures
+  const is3rd = f.team === '3rd XI';
+  document.getElementById('ef-3rdxi-mode-section').style.display = is3rd ? 'block' : 'none';
+  if (is3rd) {
+    document.getElementById('ef-3rdxi-mode').value = f.thirdXIMode || 'auto';
+  }
+  // Also update when team changes
+  document.getElementById('ef-team').onchange = function() {
+    document.getElementById('ef-3rdxi-mode-section').style.display =
+      this.value === '3rd XI' ? 'block' : 'none';
+  };
   openModal('edit-fixture-modal');
 }
 
@@ -1868,17 +1917,21 @@ function saveFixtureEdit() {
   const idx = parseInt(document.getElementById('ef-index').value);
   const f = state.fixtures[idx];
   const note = document.getElementById('ef-notes').value;
+  const newTeam = document.getElementById('ef-team').value;
   state.fixtures[idx] = {
     ...f,
-    date:      document.getElementById('ef-date').value,
-    day:       document.getElementById('ef-day').value,
-    team:      document.getElementById('ef-team').value,
-    opponents: document.getElementById('ef-opponents').value,
-    strip:     document.getElementById('ef-strip').value,
-    status:    document.getElementById('ef-status').value,
-    changeNote: note || undefined,
-    pinned:    document.getElementById('ef-pinned').checked,
-    lastEdited: new Date().toISOString(),
+    date:        document.getElementById('ef-date').value,
+    day:         document.getElementById('ef-day').value,
+    team:        newTeam,
+    opponents:   document.getElementById('ef-opponents').value,
+    strip:       document.getElementById('ef-strip').value,
+    status:      document.getElementById('ef-status').value,
+    changeNote:  note || undefined,
+    pinned:      document.getElementById('ef-pinned').checked,
+    thirdXIMode: newTeam === '3rd XI'
+      ? document.getElementById('ef-3rdxi-mode').value
+      : undefined,
+    lastEdited:  new Date().toISOString(),
   };
   saveFixtures();
   // Write update to sheet
@@ -2136,68 +2189,110 @@ function isStripAvailable(strip, fixture, fixtureIdx, proposals) {
 }
 
 /**
+ * Returns true if a strip has been used at least once before this fixture index.
+ */
+function stripHasBeenUsed(strip, beforeIdx, proposals) {
+  for (let i = 0; i < beforeIdx; i++) {
+    const f = state.fixtures[i];
+    if (f.status === 'cancelled') continue;
+    const effectiveStrip = (proposals[i] && proposals[i].newStrip) ? proposals[i].newStrip : f.strip;
+    if (effectiveStrip === strip) return true;
+  }
+  return false;
+}
+
+/**
  * Find best strip for a 3rd XI fixture.
- * Preference order:
- * 1. Same-day previous fixture's strip (piggyback)
- * 2. Most recently used 2nd/3rd XI strip (within reasonable window)
- * 3. Any recently used strip (either zone)
- * 4. Fresh 2nd/3rd XI strip (Use 1)
+ *
+ * Mode (from fixture.thirdXIMode):
+ *   'auto'      — try 2nd XI Use 2 first (early season), 1st XI Use 3 mid/late summer
+ *   'piggyback' — previous day's strip
+ *   '2nd_use2'  — force 2nd XI strip Use 2
+ *   '1st_use3'  — force 1st XI strip Use 3 (post-reno)
+ *
+ * Rules: 3rd XI ALWAYS plays on a previously used strip — never Use 1 on a fresh strip.
  */
 function findBest3rdXIStrip(fixture, fixtureIdx, proposals) {
   const date = parseFixtureDate(fixture.date);
+  const mode = fixture.thirdXIMode || 'auto';
+  const monthNum = date.getMonth(); // 0=Jan, 3=Apr, 6=Jul, 8=Sep
 
-  // 1. Same-day strip (piggyback Saturday's game)
-  const sameDayFix = state.fixtures.find((f, i) => {
-    if (i >= fixtureIdx) return false;
-    if (f.status === 'cancelled') return false;
-    const fd = parseFixtureDate(f.date);
-    return Math.abs((fd - date) / 86400000) <= 1; // within 1 day
-  });
-  if (sameDayFix && isStripAvailable(sameDayFix.strip, fixture, fixtureIdx, proposals)) {
-    return { strip: sameDayFix.strip, reason: `Piggybacks ${sameDayFix.date} ${sameDayFix.team}` };
+  // Helper: find best 2nd XI Use 2 strip
+  function find2ndUse2() {
+    for (const strip of ZONE_23) {
+      const uses = stripUseCount(strip, fixtureIdx, proposals);
+      if (uses === 1 && isStripAvailable(strip, fixture, fixtureIdx, proposals)) {
+        return { strip, reason: `2nd XI Strip ${strip} Use 2` };
+      }
+    }
+    return null;
   }
 
-  // 2. Most recently used 2nd/3rd XI strip within last 14 days
-  let recentStrip = null, recentDate = null;
-  for (let i = fixtureIdx - 1; i >= 0; i--) {
-    const f = state.fixtures[i];
-    if (f.status === 'cancelled') continue;
-    const effectiveStrip = (proposals[i] && proposals[i].newStrip) ? proposals[i].newStrip : f.strip;
-    if (!ZONE_23.includes(effectiveStrip)) continue;
-    const fd = parseFixtureDate(f.date);
-    const daysDiff = (date - fd) / 86400000;
-    if (daysDiff > 14) break;
-    if (isStripAvailable(effectiveStrip, fixture, fixtureIdx, proposals)) {
-      recentStrip = effectiveStrip;
-      recentDate = f.date;
-      break;
+  // Helper: find 1st XI Use 3 strip (post-reno, used twice already)
+  function find1stUse3() {
+    for (const strip of ZONE_1ST) {
+      const uses = stripUseCount(strip, fixtureIdx, proposals);
+      if (uses === 2 && isStripAvailable(strip, fixture, fixtureIdx, proposals)) {
+        return { strip, reason: `1st XI Strip ${strip} Use 3 (post-reno)` };
+      }
+    }
+    return null;
+  }
+
+  // Helper: piggyback same/previous day
+  function findPiggyback() {
+    const sameDayFix = state.fixtures.find((f, i) => {
+      if (i >= fixtureIdx) return false;
+      if (f.status === 'cancelled') return false;
+      if (['junior','practice'].includes(STRIP_INFO[f.strip]?.type)) return false;
+      const fd = parseFixtureDate(f.date);
+      return Math.abs((fd - date) / 86400000) <= 1;
+    });
+    if (sameDayFix && isStripAvailable(sameDayFix.strip, fixture, fixtureIdx, proposals)) {
+      return { strip: sameDayFix.strip, reason: `Piggybacks ${sameDayFix.date} ${sameDayFix.team}` };
+    }
+    return null;
+  }
+
+  // Helper: any used strip (fallback)
+  function findAnyUsed() {
+    // Try used 2nd/3rd XI strips first
+    for (const strip of [...ZONE_23, ...ZONE_1ST]) {
+      if (!stripHasBeenUsed(strip, fixtureIdx, proposals)) continue;
+      if (isStripAvailable(strip, fixture, fixtureIdx, proposals)) {
+        return { strip, reason: `Used strip ${strip} (fallback)` };
+      }
+    }
+    return null;
+  }
+
+  let result = null;
+
+  if (mode === 'piggyback') {
+    result = findPiggyback() || find2ndUse2() || find1stUse3() || findAnyUsed();
+
+  } else if (mode === '2nd_use2') {
+    result = find2ndUse2() || findPiggyback() || find1stUse3() || findAnyUsed();
+
+  } else if (mode === '1st_use3') {
+    result = find1stUse3() || find2ndUse2() || findPiggyback() || findAnyUsed();
+
+  } else {
+    // AUTO — prefer 2nd XI Use 2 early season (Apr-Jun), 1st XI Use 3 mid/late (Jul-Sep)
+    // But always try piggyback first as most efficient
+    const piggyback = findPiggyback();
+    if (piggyback) return piggyback;
+
+    if (monthNum <= 5) {
+      // Apr–Jun: prefer 2nd XI Use 2, fall back to 1st XI Use 3
+      result = find2ndUse2() || find1stUse3() || findAnyUsed();
+    } else {
+      // Jul–Sep: prefer 1st XI Use 3 (better surface mid-season), fall back to 2nd XI Use 2
+      result = find1stUse3() || find2ndUse2() || findAnyUsed();
     }
   }
-  if (recentStrip) {
-    return { strip: recentStrip, reason: `Recently used 2nd/3rd XI strip (${recentDate})` };
-  }
 
-  // 3. Any recently used strip (either zone, last 21 days)
-  for (let i = fixtureIdx - 1; i >= 0; i--) {
-    const f = state.fixtures[i];
-    if (f.status === 'cancelled') continue;
-    const effectiveStrip = (proposals[i] && proposals[i].newStrip) ? proposals[i].newStrip : f.strip;
-    const fd = parseFixtureDate(f.date);
-    const daysDiff = (date - fd) / 86400000;
-    if (daysDiff > 21) break;
-    if (isStripAvailable(effectiveStrip, fixture, fixtureIdx, proposals)) {
-      return { strip: effectiveStrip, reason: `Recently used strip from ${f.date}` };
-    }
-  }
-
-  // 4. Fresh 2nd/3rd XI strip
-  for (const strip of ZONE_23) {
-    if (isStripAvailable(strip, fixture, fixtureIdx, proposals)) {
-      return { strip, reason: `Fresh 2nd/3rd XI strip — Use 1` };
-    }
-  }
-
-  return null; // unresolvable
+  return result || null; // null = unresolvable
 }
 
 /**
