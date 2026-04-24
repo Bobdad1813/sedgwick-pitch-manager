@@ -1875,12 +1875,30 @@ function submitPrepLog() {
 
   state.prepLogs.unshift(entry);
   localStorage.setItem('scc_preplogs', JSON.stringify(state.prepLogs));
+
+  // Auto-update fixture status to 'prep' when prep work is logged
+  var fixtureVal = document.getElementById('log-fixture').value;
+  var stripVal   = document.getElementById('log-strip').value;
+  state.fixtures.forEach(function(f, i) {
+    var fixKey = f.date + ' — ' + f.opponents + ' (' + f.team + ')';
+    var matchesByFixture = fixtureVal && fixKey === fixtureVal;
+    var matchesByStrip   = !fixtureVal && f.strip === stripVal &&
+                           (f.status === 'active' || f.status === 'postreno');
+    if ((matchesByFixture || matchesByStrip) && f.status !== 'played' &&
+         f.status !== 'cancelled' && f.status !== 'prep') {
+      state.fixtures[i].status = 'prep';
+      writeToSheet('updateFixture', state.fixtures[i]);
+    }
+  });
+  localStorage.setItem('scc_fixtures', JSON.stringify(state.fixtures));
+
   closeModal('prep-log-modal');
+  renderSquareMap();
+  renderFixtures();
   renderRecentLogs();
   renderReports();
   notify('Prep log saved ✓');
 
-  // TODO: write to Google Sheet
   writeToSheet('savePrepLog', entry);
 }
 
