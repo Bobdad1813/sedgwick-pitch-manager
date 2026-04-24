@@ -1918,25 +1918,57 @@ function submitMatchReport() {
 
   const wear = [...document.querySelectorAll('#match-log-modal input[name="wear"]:checked')]
     .map(cb => cb.value);
-  const stripNum = state.fixtures.find(f => `${f.date} — ${f.opponents} (${f.team})` === fixture)?.strip || '';
+
+  // Find matching fixture — try exact match first, then partial
+  const matchedFix = state.fixtures.find(f =>
+    fixture.includes(f.opponents) && fixture.includes(f.date)
+  );
+  const stripNum  = matchedFix ? matchedFix.strip : '';
+  const matchDate = matchedFix ? matchedFix.date  : '';
+  const matchTeam = matchedFix ? matchedFix.team  : '';
+  const rowIndex  = matchedFix ? matchedFix.rowIndex : undefined;
 
   const entry = {
-    name, fixture, strip: stripNum,
-    result: document.getElementById('mr-result').value,
-    pace:    document.querySelector('[data-group="mr-pace"].selected')?.textContent,
-    bounce:  document.querySelector('[data-group="mr-bounce"].selected')?.textContent,
-    spin:    document.querySelector('[data-group="mr-spin"].selected')?.textContent,
-    overall: document.querySelector('[data-group="mr-overall"].selected')?.textContent,
-    wear, notes: document.getElementById('mr-notes').value,
+    name,
+    fixture,
+    strip:     stripNum,
+    matchDate: matchDate,
+    team:      matchTeam,
+    opponents: matchedFix ? matchedFix.opponents : '',
+    result:    document.getElementById('mr-result').value,
+    pace:      document.querySelector('[data-group="mr-pace"].selected')?.textContent    || '',
+    bounce:    document.querySelector('[data-group="mr-bounce"].selected')?.textContent  || '',
+    spin:      document.querySelector('[data-group="mr-spin"].selected')?.textContent    || '',
+    overall:   document.querySelector('[data-group="mr-overall"].selected')?.textContent || '',
+    wear,
+    notes:     document.getElementById('mr-notes').value,
     timestamp: new Date().toISOString(),
   };
 
   state.matchLogs.unshift(entry);
   localStorage.setItem('scc_matchlogs', JSON.stringify(state.matchLogs));
+
+  // Mark fixture as played
+  if (matchedFix) {
+    const idx = state.fixtures.indexOf(matchedFix);
+    if (idx !== -1) {
+      state.fixtures[idx].status   = 'played';
+      state.fixtures[idx].noReport = false;
+      localStorage.setItem('scc_fixtures', JSON.stringify(state.fixtures));
+      if (rowIndex !== undefined) {
+        writeToSheet('updateFixture', state.fixtures[idx]);
+      }
+    }
+  }
+
   closeModal('match-log-modal');
+  renderSquareMap();
+  renderFixtures();
   renderRecentLogs();
   renderReports();
   notify('Match report saved ✓');
+
+  // Write to sheet
   writeToSheet('saveMatchLog', entry);
 }
 
