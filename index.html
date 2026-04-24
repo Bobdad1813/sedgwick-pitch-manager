@@ -1031,6 +1031,13 @@ body {
           <button class="rating-btn" onclick="selectRating(this,'vc-passes')">3</button>
         </div>
       </div>
+      <div class="form-section" id="water-section" style="display:none">
+        <label class="form-label">Watering — Type</label>
+        <div class="rating-group">
+          <button class="rating-btn" onclick="selectRating(this,'water-type')" style="font-size:0.8rem">Light</button>
+          <button class="rating-btn" onclick="selectRating(this,'water-type')" style="font-size:0.8rem">Soak</button>
+        </div>
+      </div>
       <div class="form-section">
         <label class="form-label">Conditions</label>
         <input type="text" class="form-input" id="log-conditions" placeholder="e.g. Dry and firm, soft after rain…">
@@ -1588,6 +1595,7 @@ function renderStripDetail(stripNum) {
         ${l.hoc ? `<div class="text-sm">HOC: ${l.hoc}mm</div>` : ''}
         ${(l.rollPattern || l.rollPasses) ? `<div class="text-sm">Roll: ${[l.rollPattern, l.rollPasses ? l.rollPasses+' pass'+( l.rollPasses!=='1'?'es':'') : ''].filter(Boolean).join(' — ')}</div>` : ''}
         ${l.vcPasses ? `<div class="text-sm">Verticut passes: ${l.vcPasses}</div>` : ''}
+        ${l.waterType ? `<div class="text-sm">Watering: ${l.waterType}</div>` : ''}
         ${l.conditions ? `<div class="text-sm text-muted">${l.conditions}</div>` : ''}
         ${l.notes ? `<div class="text-sm text-muted">${l.notes}</div>` : ''}
         <div class="log-by">Logged by: ${l.name || 'Unknown'}</div>
@@ -1868,6 +1876,7 @@ function submitPrepLog() {
     rollPasses:  document.querySelector('[data-group="roll-passes"].selected')?.textContent || '',
     hoc:         document.getElementById('log-hoc').value,
     vcPasses:    document.querySelector('[data-group="vc-passes"].selected')?.textContent || '',
+    waterType:   document.querySelector('[data-group="water-type"].selected')?.textContent || '',
     conditions:  document.getElementById('log-conditions').value,
     notes:       document.getElementById('log-notes').value,
     timestamp:   new Date().toISOString(),
@@ -2538,8 +2547,19 @@ function checkUnloggedFixtures() {
     if (f.use === 'Fixed strip') return;
     if (f.status === 'cancelled') return;
     if (['1','2','3','15'].indexOf(f.strip) !== -1) return;
-    var passed = fixtureDatePassed(f.date, 0);
-    var passedGrace = fixtureDatePassed(f.date, 3);
+
+    var passed      = fixtureDatePassed(f.date, 0);   // date is today or past
+    var passedGrace = fixtureDatePassed(f.date, 3);   // date is 3+ days past
+    var isFuture    = !passed;
+
+    // SAFETY: reset any future fixture that was incorrectly marked as played
+    if (isFuture && (f.status === 'played' || f.status === 'noreport')) {
+      state.fixtures[i].status = 'active';
+      state.fixtures[i].noReport = false;
+      anyUpdated = true;
+    }
+
+    // Auto-mark past fixtures as played (only on match day or after)
     if (passed && f.status !== 'played' && f.status !== 'renovate' &&
         f.status !== 'renovating' && f.status !== 'postreno') {
       if (f.status === 'active' || f.status === 'prep') {
@@ -2547,6 +2567,8 @@ function checkUnloggedFixtures() {
         anyUpdated = true;
       }
     }
+
+    // Flag past fixtures with no match report after 3 day grace period
     if (passedGrace && !hasMatchReport(f)) {
       state.fixtures[i].noReport = true;
       unlogged.push(state.fixtures[i]);
@@ -2606,9 +2628,12 @@ function toggleCheck(el) {
   const hocSec  = document.getElementById('hoc-section');
   const vcSec   = document.getElementById('verticut-section');
   const rollSec = document.getElementById('roll-section');
-  if (hocSec)  hocSec.style.display  = cutChecked  ? 'block' : 'none';
-  if (vcSec)   vcSec.style.display   = vcChecked   ? 'block' : 'none';
-  if (rollSec) rollSec.style.display = rollChecked ? 'block' : 'none';
+  var waterChecked = checked.includes('Water');
+  if (hocSec)   hocSec.style.display   = cutChecked   ? 'block' : 'none';
+  if (vcSec)    vcSec.style.display    = vcChecked    ? 'block' : 'none';
+  if (rollSec)  rollSec.style.display  = rollChecked  ? 'block' : 'none';
+  var waterSec = document.getElementById('water-section');
+  if (waterSec) waterSec.style.display = waterChecked ? 'block' : 'none';
 }
 
 function selectRating(btn, group) {
