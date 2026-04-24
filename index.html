@@ -651,6 +651,23 @@ body {
 .mb-8 { margin-bottom: 8px; }
 .gap-8 { display: flex; gap: 8px; }
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+/* Unlogged fixtures banner */
+.sb-noreport { background: var(--amber-light); color: var(--amber); border: 1px solid var(--amber); }
+.strip-noreport { background: rgba(217,119,6,0.7); }
+.unlogged-banner {
+  background: var(--amber); color: var(--green-dark);
+  border-radius: var(--radius); padding: 12px 16px; margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; box-shadow: var(--shadow);
+}
+.unlogged-banner .ub-text { font-size: 0.85rem; font-weight: 600; }
+.unlogged-banner .ub-count {
+  background: var(--green-dark); color: var(--gold);
+  font-family: 'Libre Baskerville', serif; font-size: 1.1rem; font-weight: 700;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
 </style>
 </head>
 <body>
@@ -709,10 +726,12 @@ body {
       <div class="legend-item"><div class="legend-dot" style="background:#1e3d6b"></div>In Prep</div>
       <div class="legend-item"><div class="legend-dot" style="background:#8b3a0f"></div>Played</div>
       <div class="legend-item"><div class="legend-dot" style="background:#8b1a1a"></div>Renovating</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div>No Report</div>
       <div class="legend-item"><div class="legend-dot" style="background:#645a30"></div>Junior/Practice</div>
     </div>
   </div>
 
+  <div id="unlogged-banner-wrap"></div>
   <div class="section-title">
     Next Fixtures
     <span class="count" id="upcoming-count">—</span>
@@ -733,6 +752,7 @@ body {
     </div>
   </div>
 
+  <div id="unlogged-banner-fixtures"></div>
   <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch">
     <button class="btn btn-secondary btn-sm filter-btn active" data-filter="all" onclick="filterFixtures('all',this)" style="white-space:nowrap">All</button>
     <button class="btn btn-secondary btn-sm filter-btn" data-filter="1st XI" onclick="filterFixtures('1st XI',this)" style="white-space:nowrap">1st XI</button>
@@ -1337,6 +1357,9 @@ window.addEventListener('load', async () => {
     setTimeout(() => document.getElementById('loading').style.display = 'none', 400);
   }, 600);
 
+  // Check for unlogged fixtures on load
+  checkUnloggedFixtures();
+
   // SAFETY NET — loading screen always clears after 3 seconds no matter what
   setTimeout(() => {
     const l = document.getElementById('loading');
@@ -1399,16 +1422,13 @@ function getStripStatus(stripNum) {
   if (!info) return 'available';
   if (info.type === 'junior') return 'junior';
   if (info.type === 'practice') return 'practice';
-  // Find upcoming fixtures for this strip
-  const upcoming = state.fixtures.filter(f => f.strip === stripNum && f.status !== 'cancelled');
-  if (upcoming.length === 0) return 'available';
-  // Check if any are in prep
-  const inPrep = upcoming.find(f => f.status === 'prep');
-  if (inPrep) return 'prep';
-  const renovating = upcoming.find(f => f.status === 'renovating');
-  if (renovating) return 'renovating';
-  const hasUpcoming = upcoming.find(f => f.status === 'active' || f.status === 'postreno');
-  if (hasUpcoming) return 'upcoming';
+  const fixtures = state.fixtures.filter(f => f.strip === stripNum && f.status !== 'cancelled');
+  if (fixtures.length === 0) return 'available';
+  if (fixtures.find(f => f.noReport)) return 'noreport';
+  if (fixtures.find(f => f.status === 'prep')) return 'prep';
+  if (fixtures.find(f => f.status === 'renovating')) return 'renovating';
+  if (fixtures.find(f => f.status === 'active' || f.status === 'postreno')) return 'upcoming';
+  if (fixtures.every(f => f.status === 'played' || f.status === 'renovate')) return 'played';
   return 'available';
 }
 
@@ -1510,9 +1530,11 @@ function renderStripDetail(stripNum) {
   const matches = state.matchLogs.filter(m => m.strip === stripNum);
   const status = getStripStatus(stripNum);
   const statusLabels = {available:'Available',upcoming:'Fixtures Assigned',prep:'Prep In Progress',
-    renovating:'Renovating',junior:'Junior Use',practice:'Practice Only',played:'Season Complete'};
+    renovating:'Renovating',junior:'Junior Use',practice:'Practice Only',played:'Season Complete',
+    noreport:'Played — match report needed'};
   const statusClass = {available:'sb-available',upcoming:'sb-upcoming',prep:'sb-prep',
-    renovating:'sb-renovating',junior:'sb-available',practice:'sb-available'}[status] || 'sb-available';
+    renovating:'sb-renovating',junior:'sb-available',practice:'sb-available',
+    noreport:'sb-noreport',played:'sb-available'}[status] || 'sb-available';
 
   const editBtn = state.isAdmin
     ? `<button class="btn btn-gold btn-sm mt-16" onclick="showAddFixtureModal('${stripNum}')">+ Add Fixture to Strip</button>` : '';
@@ -2063,6 +2085,7 @@ async function fetchFromSheet() {
     renderReports();
     populateFormSelects();
     if (state.currentStrip) renderStripDetail(state.currentStrip);
+    checkUnloggedFixtures();
   } catch(e) {
     console.warn('Sheet fetch failed, using cached data:', e.message);
   }
@@ -2078,6 +2101,7 @@ async function refreshData() {
     notify('Sync failed — using local data');
   }
   btn.textContent = '↻ Sync';
+  checkUnloggedFixtures();
 }
 
 async function writeToSheet(action, data) {
@@ -2470,6 +2494,83 @@ function applyRecalculation() {
 
 // ════════════════════════════════════════════════════════════════════════════
 // HELPERS
+
+// AUTO-UPDATE AND UNLOGGED FIXTURE DETECTION
+function today() { var d = new Date(); d.setHours(0,0,0,0); return d; }
+
+function fixtureDatePassed(dateStr, graceDays) {
+  var fd = parseFixtureDate(dateStr);
+  fd.setHours(0,0,0,0);
+  return (today() - fd) / 86400000 >= (graceDays || 0);
+}
+
+function hasMatchReport(fixture) {
+  return state.matchLogs.some(function(m) {
+    return m.strip === fixture.strip && (
+      m.matchDate === fixture.date || m.date === fixture.date ||
+      (m.fixture && m.fixture.indexOf(fixture.opponents) !== -1)
+    );
+  });
+}
+
+function checkUnloggedFixtures() {
+  var unlogged = [];
+  var anyUpdated = false;
+  state.fixtures.forEach(function(f, i) {
+    if (f.use === 'Fixed strip') return;
+    if (f.status === 'cancelled') return;
+    if (['1','2','3','15'].indexOf(f.strip) !== -1) return;
+    var passed = fixtureDatePassed(f.date, 0);
+    var passedGrace = fixtureDatePassed(f.date, 3);
+    if (passed && f.status !== 'played' && f.status !== 'renovate' &&
+        f.status !== 'renovating' && f.status !== 'postreno') {
+      if (f.status === 'active' || f.status === 'prep') {
+        state.fixtures[i].status = 'played';
+        anyUpdated = true;
+      }
+    }
+    if (passedGrace && !hasMatchReport(f)) {
+      state.fixtures[i].noReport = true;
+      unlogged.push(state.fixtures[i]);
+    } else {
+      state.fixtures[i].noReport = false;
+    }
+  });
+  if (anyUpdated) {
+    localStorage.setItem('scc_fixtures', JSON.stringify(state.fixtures));
+  }
+  renderUnloggedBanner(unlogged);
+  renderSquareMap();
+  return unlogged;
+}
+
+function renderUnloggedBanner(unlogged) {
+  var inner = '';
+  if (unlogged.length > 0) {
+    var list = unlogged.map(function(f) { return f.date + ' vs ' + f.opponents; }).join(' | ');
+    inner = '<div class="unlogged-banner" onclick="showUnloggedModal()">'
+      + '<div class="ub-text">Match reports needed<br>'
+      + '<span style="font-weight:400;font-size:0.75rem">' + list + '</span></div>'
+      + '<div class="ub-count">' + unlogged.length + '</div>'
+      + '</div>';
+  }
+  var w1 = document.getElementById('unlogged-banner-wrap');
+  var w2 = document.getElementById('unlogged-banner-fixtures');
+  if (w1) w1.innerHTML = inner;
+  if (w2) w2.innerHTML = inner;
+}
+
+function showUnloggedModal() {
+  var unlogged = state.fixtures.filter(function(f) { return f.noReport; });
+  if (unlogged.length === 0) return;
+  populateFormSelects();
+  var sel = document.getElementById('mr-fixture');
+  if (sel && unlogged.length > 0) {
+    sel.value = unlogged[0].date + ' — ' + unlogged[0].opponents + ' (' + unlogged[0].team + ')';
+  }
+  openModal('match-log-modal');
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
